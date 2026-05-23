@@ -56,9 +56,10 @@ async function seedCategories() {
     description: c.description ?? null,
     image: c.image ?? null,
   }));
-  const { data , error } = await supabase.from('categories').upsert(payload, { onConflict: 'id' });
+  const { data, error } = await supabase.from('categories').upsert(payload, { onConflict: 'id' }) as { data: any[] | null; error: any };
   if (error) console.error('Seed categories error:', error);
-  else console.log(`Seeded ${data?.length ?? 0} categories`);
+  else console.log(`Seeded ${Array.isArray(data) ? data.length : 0} categories`);
+
 }
 
 async function seedProducts() {
@@ -79,18 +80,18 @@ async function seedProducts() {
     weight: p.weight,
     image: p.image ?? null,
   }));
-  const { data, error } = await supabase.from('products').upsert(payload, { onConflict: 'id' });
+  const { data, error } = await supabase.from('products').upsert(payload, { onConflict: 'id' }) as { data: any[] | null; error: any };
   if (error) console.error('Seed products error:', error);
-  else console.log(`Seeded ${data?.length ?? 0} products`);
+  else console.log(`Seeded ${Array.isArray(data) ? data.length : 0} products`);
 }
 
 async function seedProductCategories() {
   const rels = await loadJson<ProductCategoryRaw>('parsed_product_categories.json');
   if (rels.length === 0) return;
   const payload = rels.map((r) => ({ product_id: r.productId, category_id: r.categoryId }));
-  const { data, error } = await supabase.from('product_categories').upsert(payload, { onConflict: ['product_id', 'category_id'] });
+  const { data, error } = await supabase.from('product_categories').upsert(payload) as { data: any[] | null; error: any };
   if (error) console.error('Seed product_categories error:', error);
-  else console.log(`Seeded ${data?.length ?? 0} product-category links`);
+  else console.log(`Seeded ${Array.isArray(data) ? data.length : 0} product-category links`);
 }
 
 async function main() {

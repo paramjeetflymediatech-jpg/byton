@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { Order, OrderItem, Setting } from '../../../lib/db/models';
+import { Order, OrderItem, Product, Setting } from '@/lib/db/models';
 
 // GET orders and settings
 export async function GET() {

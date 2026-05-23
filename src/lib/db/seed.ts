@@ -171,7 +171,7 @@ async function seed() {
       });
     }
 
-    await Setting.bulkCreate(pageSettings, { updateOnDuplicate: ['value'] });
+    await Setting.bulkCreate(pageSettings);
     console.log('Pages content stored in Settings.');
   }
 
@@ -188,7 +188,7 @@ async function seed() {
     { key: 'pinterest_tag_id', value: 'PINTAG789012' },
   ];
 
-  await Setting.bulkCreate(defaultSettings, { updateOnDuplicate: ['value'] });
+  await Setting.bulkCreate(defaultSettings);
   console.log('Default settings initialized.');
 
   console.log('Seeding process completed successfully!');

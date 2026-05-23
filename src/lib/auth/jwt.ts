@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import jwt, { JwtPayload } from 'jsonwebtoken';
 import { User } from '@/lib/db/models';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'change-me-in-.env';
@@ -21,7 +21,16 @@ export function signToken(user: User): string {
 
 export function verifyToken(token: string): AuthTokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
+    const decoded = jwt.verify(token, JWT_SECRET) as unknown;
+    if (typeof decoded === 'string') return null;
+    const payload = decoded as JwtPayload;
+    if (!payload.sub || !payload.email || !payload.role) return null;
+      const sub = typeof payload.sub === 'string' ? parseInt(payload.sub, 10) : payload.sub;
+      return {
+        sub,
+        email: payload.email as string,
+        role: payload.role as string,
+      };
   } catch {
     return null;
   }
