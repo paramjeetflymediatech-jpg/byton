@@ -1,9 +1,9 @@
 import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Product, Category } from '../../../lib/db/models';
-import ProductInteractivePanel from '../../../components/ProductInteractivePanel';
-import ProductViewTracker from '../../../components/ProductViewTracker';
+import { Product, Category } from '@/lib/db/models';
+import ProductInteractivePanel from '@/components/ProductInteractivePanel';
+import ProductViewTracker from '@/components/ProductViewTracker';
 import { ChevronRight, ArrowLeft } from 'lucide-react';
 import type { Metadata } from 'next';
 

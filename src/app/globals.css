@@ -71,13 +71,14 @@ button, input, select, textarea {
 
 /* Header & Navigation */
 .header {
-  background-color: var(--card-bg);
-  border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  box-shadow: var(--shadow-sm);
-}
+    background-color: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
 
 .top-bar {
   background-color: var(--primary);
@@ -96,12 +97,13 @@ button, input, select, textarea {
 }
 
 .nav-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  gap: 40px;
-}
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 40px;
+    flex-shrink: 0;
+  }
 
 .logo {
   font-size: 24px;
@@ -232,6 +234,23 @@ button, input, select, textarea {
 
 .mobile-search-wrapper {
   display: none;
+}
+
+/* Mobile adjustments */
+@media (max-width: 991px) {
+  /* Ensure nav-top does not wrap */
+  .nav-top {
+    flex-wrap: nowrap;
+    justify-content: space-between;
+  }
+  /* Hide non-hamburger icons in actions */
+  .nav-actions .icon-btn:not(.mobile-menu-btn) {
+    display: none;
+  }
+  /* Align hamburger to the right */
+  .mobile-menu-btn {
+    display: flex;
+  }
 }
 
 /* Tablet adjustments */
@@ -799,6 +818,55 @@ button, input, select, textarea {
   gap: 6px;
 }
 
+/* Minimalist Auth Card */
+.auth-card {
+  max-width: 400px;
+  margin: 80px auto;
+  padding: 40px 30px;
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(12px);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+}
+.auth-card h1 {
+  font-size: 28px;
+  text-align: center;
+  margin-bottom: 24px;
+  color: var(--dark);
+}
+.auth-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  background: var(--light-bg);
+  transition: var(--transition);
+}
+.auth-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-glow);
+}
+.auth-button {
+  width: 100%;
+  padding: 12px 0;
+  margin-top: 12px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.auth-button:hover {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+}
+
+
 .form-group label {
   font-weight: 600;
   font-size: 14px;
@@ -845,3 +913,55 @@ button, input, select, textarea {
   font-weight: 600;
   color: var(--dark);
 }
+
+/* Shop Layout & Sidebar Responsive Adjustments */
+.shop-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 40px;
+}
+
+.shop-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+@media (max-width: 991px) {
+  .shop-layout {
+    grid-template-columns: 1fr;
+    gap: 30px;
+  }
+  .shop-sidebar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .shop-sidebar > div {
+    flex: 1 1 calc(50% - 10px);
+    min-width: 250px;
+  }
+}
+
+@media (max-width: 576px) {
+  .shop-sidebar > div {
+    flex: 1 1 100%;
+  }
+}
+
+/* Custom Scrollbar for scrollable lists */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+

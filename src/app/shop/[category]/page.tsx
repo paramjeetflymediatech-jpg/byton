@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
-import { Product, Category } from '../../../lib/db/models';
-import { Op } from 'sequelize';
+import { Product, Category } from '../../../lib/db/models'; // interfaces only
+import { supabase } from '../../../lib/supabase';
 import AddToCartButton from '../../../components/AddToCartButton';
 import { ChevronRight, SlidersHorizontal } from 'lucide-react';
 import SortSelect from '../../../components/SortSelect';
@@ -33,14 +33,19 @@ export async function generateMetadata({ params }: { params: Promise<{ category:
   }
 
   try {
-    const category = await Category.findOne({ where: { slug: categorySlug } });
-    if (category) {
-      const description = `Shop quality ${category.name} supplies at Bayton Horticulture Centre Coventry. Browse our select range of garden products, grow supplies, and horticulture essentials.`;
+    // Fetch current category details from Supabase
+    const { data: categoryData, error: categoryErr } = await supabase
+      .from('categories')
+      .select('id,name,slug')
+      .eq('slug', categorySlug)
+      .single();
+    if (categoryData) {
+      const description = `Shop quality ${categoryData.name} supplies at Bayton Horticulture Centre Coventry. Browse our select range of garden products, grow supplies, and horticulture essentials.`;
       return {
-        title: `${category.name} - Bayton Horticulture Centre`,
+        title: `${categoryData.name} - Bayton Horticulture Centre`,
         description: description,
         openGraph: {
-          title: `${category.name} | Gardening & Hydroponics Store`,
+          title: `${categoryData.name} | Gardening & Hydroponics Store`,
           description: description,
         },
       };
@@ -66,65 +71,87 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   const maxPrice = parseFloat(resolvedSearchParams.maxPrice || '') || 99999;
 
   // 1. Fetch categories for sidebar filter
+  // Fetch all categories for sidebar filter
   let allCategories: Category[] = [];
-  try {
-    allCategories = await Category.findAll({ order: [['name', 'ASC']] });
-  } catch (e) {
-    console.error(e);
+  const { data: catData, error: catErr } = await supabase
+    .from('categories')
+    .select('*')
+    .order('name', { ascending: true });
+  if (catErr) {
+    console.error('Error loading categories:', catErr);
+  } else if (catData) {
+    allCategories = catData as Category[];
   }
 
   // 2. Fetch current category details
+  // Fetch current category (if not 'all')
   let currentCategory: Category | null = null;
   if (categorySlug !== 'all') {
-    try {
-      currentCategory = await Category.findOne({ where: { slug: categorySlug } });
-    } catch (e) {
-      console.error(e);
+    const { data: curCat, error: curCatErr } = await supabase
+      .from('categories')
+      .select('id,name,slug')
+      .eq('slug', categorySlug)
+      .single();
+    if (curCatErr) {
+      console.error('Error loading current category:', curCatErr);
+    } else if (curCat) {
+      currentCategory = curCat as Category;
     }
   }
 
   // 3. Build product where clause
-  const whereClause: any = {};
-  
+  // Build Supabase filter conditions
+  const filters: any = [];
   if (search) {
-    whereClause.title = { [Op.like]: `%${search}%` };
+    // ilike is case‑insensitive pattern match in Supabase
+    filters.push({ column: 'title', operator: 'ilike', value: `%${search}%` });
   }
+  // Price range filter
+  filters.push({ column: 'price', operator: 'gte', value: minPrice });
+  filters.push({ column: 'price', operator: 'lte', value: maxPrice });
 
-  whereClause.price = {
-    [Op.between]: [minPrice, maxPrice]
+  // Build sorting
+  const sortMap: Record<string, { column: string; order: 'asc' | 'desc' }> = {
+    latest: { column: 'id', order: 'desc' },
+    'price-asc': { column: 'price', order: 'asc' },
+    'price-desc': { column: 'price', order: 'desc' },
+    'title-asc': { column: 'title', order: 'asc' },
   };
-
-  // 4. Build sorting order
-  let orderClause: any = [['id', 'DESC']];
-  if (sort === 'price-asc') {
-    orderClause = [['price', 'ASC']];
-  } else if (sort === 'price-desc') {
-    orderClause = [['price', 'DESC']];
-  } else if (sort === 'title-asc') {
-    orderClause = [['title', 'ASC']];
-  }
+  const sortConfig = sortMap[sort] || sortMap['latest'];
 
   // 5. Fetch products
   let products: Product[] = [];
   try {
     if (categorySlug === 'all') {
-      products = await Product.findAll({
-        where: whereClause,
-        order: orderClause
+      // Simple product fetch with filters
+      let query = supabase.from('products').select('*');
+      filters.forEach((f: any) => {
+        query = query.filter(f.column, f.operator, f.value);
       });
+      const { data, error } = await query.order(sortConfig.column, { ascending: sortConfig.order === 'asc' }).limit(1000);
+      if (error) throw error;
+      products = data as Product[];
     } else if (currentCategory) {
-      products = await Product.findAll({
-        include: [{
-          model: Category,
-          as: 'categories',
-          where: { id: currentCategory.id },
-          attributes: [] // exclude category columns from result
-        }],
-        where: whereClause,
-        order: orderClause
-      });
+      // Fetch product IDs linked to this category via join table
+      const { data: linkData, error: linkErr } = await supabase
+        .from('product_categories')
+        .select('product_id')
+        .eq('category_id', currentCategory.id);
+      if (linkErr) throw linkErr;
+      const productIds = (linkData || []).map((row: any) => row.product_id);
+      if (productIds.length === 0) {
+        products = [];
+      } else {
+        let query = supabase.from('products').select('*').in('id', productIds);
+        filters.forEach((f: any) => {
+          query = query.filter(f.column, f.operator, f.value);
+        });
+        const { data, error } = await query.order(sortConfig.column, { ascending: sortConfig.order === 'asc' }).limit(1000);
+        if (error) throw error;
+        products = data as Product[];
+      }
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching catalog products:', error);
   }
 
@@ -145,13 +172,13 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: '40px' }}>
+      <div className="shop-layout">
         {/* Sidebar Filters */}
-        <aside style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+        <aside className="shop-sidebar">
           {/* Categories list */}
           <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 600, marginBottom: '16px', borderBottom: '2px solid var(--primary-glow)', paddingBottom: '8px' }}>Categories</h3>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+            <ul className="custom-scrollbar" style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px', maxHeight: '250px', overflowY: 'auto', paddingRight: '8px' }}>
               <li style={{ fontWeight: categorySlug === 'all' ? 600 : 400 }}>
                 <Link href="/shop/all" style={{ color: categorySlug === 'all' ? 'var(--primary)' : 'inherit' }}>All Products</Link>
               </li>

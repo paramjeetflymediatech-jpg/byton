@@ -1,21 +1,27 @@
-import React from 'react';
-import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 import { Product } from '../lib/db/models';
 import { Leaf, ArrowRight, Lightbulb, Package, Sprout, Wind, Hammer, Sofa, Sparkles, Smile } from 'lucide-react';
 import AddToCartButton from '@/components/AddToCartButton';
-
+import Link from 'next/link';
 // Force dynamic so that database reads are fresh on load
 export const dynamic = 'force-dynamic';
-
 export default async function HomePage() {
   let products: Product[] = [];
   
   try {
-    // Fetch top 8 products from Sequelize
-    products = await Product.findAll({
-      limit: 8,
-      order: [['id', 'DESC']]
-    });
+    // Fetch top 8 products from Supabase
+    // Ensure a 'products' table exists in Supabase with columns matching the Product interface (id, title, slug, description, excerpt, price, regularPrice, salePrice, sku, stock, stockStatus, weight, image)
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .order('id', { ascending: false })
+      .limit(8);
+    if (error) {
+      console.error('Failed to query products:', error);
+    } else {
+      // @ts-ignore - supabase returns any[]; we trust shape matches Product interface
+      products = data as Product[];
+    }
   } catch (error) {
     console.error('Failed to query products for home page:', error);
   }

@@ -2,13 +2,16 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useCart } from '../lib/context/CartContext';
-import { ShoppingBag, Search, Menu, X, Leaf, User } from 'lucide-react';
+import { ShoppingBag, Search, Menu, X, Leaf, User, LogIn } from 'lucide-react';
+import { isAuthenticated } from '../lib/auth/client';
 
 export default function Header() {
   const { cartCount, setIsCartOpen } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,10 +54,21 @@ export default function Header() {
 
             {/* Actions (User Profile, Shopping Cart, Mobile Menu button) */}
             <div className="nav-actions">
-              {/* User Link to Admin Panel */}
-              <Link href="/admin" className="icon-btn" title="Admin Panel">
-                <User size={22} />
-              </Link>
+              {/* User button with auth check */}
+              <button
+                onClick={() => {
+                  if (isAuthenticated()) {
+                    router.push('/admin');
+                  } else {
+                    router.push('/login');
+                  }
+                }}
+                className="icon-btn"
+                title={isAuthenticated() ? 'Dashboard' : 'Login'}
+                type="button"
+              >
+                {isAuthenticated() ? <User size={22} /> : <LogIn size={22} />}
+              </button>
 
               {/* Shopping Cart button */}
               <button onClick={() => setIsCartOpen(true)} className="icon-btn" title="Shopping Cart">
