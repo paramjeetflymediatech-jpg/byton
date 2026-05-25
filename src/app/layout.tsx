@@ -4,6 +4,7 @@ import { CartProvider } from '../lib/context/CartContext';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
 import CartDrawer from '../components/CartDrawer';
+import LayoutClientWrapper from '../components/LayoutClientWrapper';
 import { Setting } from '../lib/db/models';
 import Script from 'next/script';
 
@@ -47,7 +48,7 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <body>
+      <body className="login-bg">
         {/* Inject TikTok Conversion Tag safely */}
         <Script id="tiktok-pixel" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: tikTokScript }} />
         
@@ -55,12 +56,9 @@ export default async function RootLayout({
         <Script id="pinterest-tag" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: pinterestScript }} />
 
         <CartProvider>
-          <Header />
-          <CartDrawer />
-          <main style={{ minHeight: '60vh', paddingBottom: '60px' }}>
+          <LayoutClientWrapper>
             {children}
-          </main>
-          <Footer />
+          </LayoutClientWrapper>
         </CartProvider>
       </body>
     </html>

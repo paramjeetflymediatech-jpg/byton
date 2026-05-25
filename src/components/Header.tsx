@@ -33,9 +33,8 @@ export default function Header() {
           {/* Top Row: Logo, Search Bar, Action Icons */}
           <div className="nav-top">
             {/* Logo */}
-            <Link href="/" className="logo">
-              <Leaf fill="var(--primary)" size={26} />
-              Bayton <span>Horticulture</span>
+            <Link href="/" className="logo" style={{ display: 'flex', alignItems: 'center' }}>
+              <img src="/logo.png" alt="Bayton Horticulture Logo" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
             </Link>
 
             {/* Centered Search Bar */}

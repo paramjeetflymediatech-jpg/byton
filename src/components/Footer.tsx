@@ -9,13 +9,11 @@ export default function Footer() {
         <div className="footer-grid">
           {/* About Column */}
           <div>
-            <div className="logo" style={{ color: 'white', marginBottom: '20px' }}>
-              <Leaf fill="var(--primary)" size={24} />
-              Bayton <span style={{ color: 'white' }}>Horticulture</span>
+            <div className="logo" style={{ color: 'white', marginBottom: '20px', display: 'flex', alignItems: 'center' }}>
+              <img src="/footerlogo.png" alt="Bayton Horticulture Logo" style={{ height: '40px', width: 'auto', objectFit: 'contain' }} />
             </div>
             <p style={{ lineHeight: 1.7, marginBottom: '20px' }}>
-              Your Coventry superstore for garden products, urban farming, Grow lights, tents, and hydroponic gear. Visit us in-store or order online for fast UK delivery.
-            </p>
+           We pride ourselves on offering a comprehensive range of products, including quality plant nutrients, cutting-edge hydroponic systems, high-quality growing mediums, and reliable indoor lighting. </p>
           </div>
 
           {/* Categories Links Column */}

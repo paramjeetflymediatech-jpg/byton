@@ -2,9 +2,26 @@
 
 import React, { useState, useEffect } from 'react';
 import { Package, Settings, Truck, CheckCircle, FileText, ExternalLink, RefreshCw } from 'lucide-react';
+import SeoPage from './seo/page';
+import ProductsPage from './products/page';
+import CategoriesPage from './categories/page';
+import UsersPage from './users/page';
+import { useSession, signIn } from 'next-auth/react';
+
+// Session guard – ensure only authenticated admin can view
+const AdminGuard = ({ children }: { children: React.ReactNode }) => {
+  const { data: session, status } = useSession();
+  if (status === 'loading') return <p style={{ padding: '80px 24px', textAlign: 'center' }}>Loading...</p>;
+  if (!session || (session.user as any)?.role !== 'ADMIN') {
+    // Redirect to sign‑in page
+    if (typeof window !== 'undefined') signIn();
+    return <p style={{ padding: '80px 24px', textAlign: 'center' }}>Access denied – redirecting to sign‑in...</p>;
+  }
+  return <>{children}</>;
+};
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState<'orders' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'settings' | 'seo' | 'products' | 'categories' | 'users'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
   
@@ -118,6 +135,82 @@ export default function AdminPage() {
           }}
         >
           <Settings size={18} /> Integration &amp; Shipping Settings
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('seo')}
+          style={{ 
+            padding: '12px 20px', 
+            fontSize: '15px', 
+            fontWeight: 600, 
+            background: 'none', 
+            border: 'none', 
+            cursor: 'pointer',
+            borderBottom: activeTab === 'seo' ? '3px solid var(--primary)' : '3px solid transparent',
+            color: activeTab === 'seo' ? 'var(--primary)' : 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          SEO
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('products')}
+          style={{ 
+            padding: '12px 20px', 
+            fontSize: '15px', 
+            fontWeight: 600, 
+            background: 'none', 
+            border: 'none', 
+            cursor: 'pointer',
+            borderBottom: activeTab === 'products' ? '3px solid var(--primary)' : '3px solid transparent',
+            color: activeTab === 'products' ? 'var(--primary)' : 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          Products
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('categories')}
+          style={{ 
+            padding: '12px 20px', 
+            fontSize: '15px', 
+            fontWeight: 600, 
+            background: 'none', 
+            border: 'none', 
+            cursor: 'pointer',
+            borderBottom: activeTab === 'categories' ? '3px solid var(--primary)' : '3px solid transparent',
+            color: activeTab === 'categories' ? 'var(--primary)' : 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          Categories
+        </button>
+
+        <button 
+          onClick={() => setActiveTab('users')}
+          style={{ 
+            padding: '12px 20px', 
+            fontSize: '15px', 
+            fontWeight: 600, 
+            background: 'none', 
+            border: 'none', 
+            cursor: 'pointer',
+            borderBottom: activeTab === 'users' ? '3px solid var(--primary)' : '3px solid transparent',
+            color: activeTab === 'users' ? 'var(--primary)' : 'inherit',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          Users
         </button>
       </div>
 
