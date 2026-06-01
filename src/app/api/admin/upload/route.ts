@@ -19,8 +19,12 @@ export async function POST(req: NextRequest) {
     const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const filename = `${uniqueId}-${sanitizedName}`;
 
-    // Target directory: public/uploads
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+    // Target directory: public/uploads/YYYY/MM/DD
+    const now = new Date();
+    const year = now.getFullYear().toString();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const uploadDir = path.join(process.cwd(), 'public', 'uploads', year, month, day);
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
@@ -28,9 +32,11 @@ export async function POST(req: NextRequest) {
     const filePath = path.join(uploadDir, filename);
     fs.writeFileSync(filePath, buffer);
 
+    // Return URL relative to the public folder
+    const url = `/uploads/${year}/${month}/${day}/${filename}`;
     return NextResponse.json({
       success: true,
-      url: `/uploads/${filename}`
+      url
     });
   } catch (error: any) {
     console.error('File upload error:', error);
