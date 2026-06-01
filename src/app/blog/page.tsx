@@ -68,7 +68,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
       </div>
 
       {/* Blog Cards Grid */}
-      <div className="container" style={{ maxWidth: '1100px' }}>
+      <div className="container" style={{ maxWidth: '1300px' }}>
         <div 
           style={{ 
             display: 'grid', 

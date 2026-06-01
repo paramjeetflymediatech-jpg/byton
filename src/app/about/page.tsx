@@ -25,7 +25,7 @@ export default function AboutUsPage() {
           textAlign: 'center'
         }}
       >
-        <div className="container" style={{ maxWidth: '800px' }}>
+        <div className="container" style={{ maxWidth: '1000px' }}>
           <span 
             style={{ 
               backgroundColor: 'var(--primary-glow)', 
@@ -59,7 +59,7 @@ export default function AboutUsPage() {
               fontSize: '18px', 
               color: '#a3c29e', 
               lineHeight: 1.6,
-              maxWidth: '650px',
+              maxWidth: '850px',
               margin: '0 auto'
             }}
           >
@@ -68,7 +68,7 @@ export default function AboutUsPage() {
         </div>
       </div>
 
-      <div className="container" style={{ marginTop: '50px', maxWidth: '1000px' }}>
+      <div className="container" style={{ marginTop: '50px', maxWidth: '1200px' }}>
         {/* Intro Section */}
         <div 
           style={{ 

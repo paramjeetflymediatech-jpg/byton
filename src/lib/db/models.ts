@@ -662,4 +662,33 @@ export class ProductCategory {
   }
 }
 
-// Additional models can be added similarly with Supabase queries.
+
+// 7. Brand model — dedicated table for brands
+export class Brand {
+  id!: number;
+  name!: string;
+  logoUrl!: string;
+  createdAt?: string;
+  updatedAt?: string;
+
+  constructor(data: Partial<Brand>) {
+    Object.assign(this, data);
+  }
+
+  static fromRow(row: any): Brand {
+    return new Brand({
+      id: row.id,
+      name: row.name ?? '',
+      logoUrl: row.logo_url ?? row.logoUrl ?? '',
+      createdAt: row.created_at ?? row.createdAt,
+      updatedAt: row.updated_at ?? row.updatedAt,
+    });
+  }
+
+  static async findAll(): Promise<Brand[]> {
+    const { data, error } = await supabase.from('brands').select('*').order('name', { ascending: true });
+    if (error) throw error;
+    return (data || []).map((item: any) => Brand.fromRow(item));
+  }
+}
+

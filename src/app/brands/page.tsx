@@ -1,36 +1,56 @@
 import React from 'react';
 import Link from 'next/link';
 import BrandsGrid from '@/components/BrandsGrid';
+import { Brand } from '@/lib/db/models';
+
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Our Trusted Brands - Bayton Horticulture Centre',
   description: 'Explore the trusted premium horticulture and gardening brands stocked by Bayton Horticulture Centre in Coventry.',
 };
 
-export default function BrandsPage() {
-  const brandLogos = [
-    { name: 'Brand Logo 1', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo01.avif' },
-    { name: 'Brand Logo 2', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo02.avif' },
-    { name: 'Brand Logo 3', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo03.avif' },
-    { name: 'Brand Logo 4', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo04.avif' },
-    { name: 'Brand Logo 5', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo05.avif' },
-    { name: 'Brand Logo 6', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo06.avif' },
-    { name: 'Brand Logo 7', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/LOGO07.avif' },
-    { name: 'Brand Logo 8', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo08.avif' },
-    { name: 'Brand Logo 9', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo09.avif' },
-    { name: 'Brand Logo 10', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo10.avif' },
-    { name: 'Brand Logo 11', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo11.avif' },
-    { name: 'Brand Logo 12', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo12.avif' },
-    { name: 'Brand Logo 13', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo13.avif' },
-    { name: 'Brand Logo 15', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo15.avif' },
-    { name: 'Brand Logo 15-1', url: 'https://baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo15-1.jpg' },
-    { name: 'Brand Logo 16', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo16.avif' },
-    { name: 'Brand Logo 17', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo17.avif' },
-    { name: 'Brand Logo 18', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo18.avif' },
-    { name: 'Brand Logo 19', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo19.avif' },
-    { name: 'Brand Logo 20', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo20.avif' },
-    { name: 'Brand Logo 21', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo21.avif' },
-  ];
+export default async function BrandsPage() {
+  let brandLogos: { name: string; url: string }[] = [];
+
+  try {
+    const dbBrands = await Brand.findAll();
+    if (dbBrands && dbBrands.length > 0) {
+      brandLogos = dbBrands.map((b) => ({
+        name: b.name,
+        url: b.logoUrl
+      }));
+    }
+  } catch (err) {
+    console.error('Failed to fetch brands from database:', err);
+  }
+
+  // Fallback if the database has no brands yet
+  if (brandLogos.length === 0) {
+    brandLogos = [
+      { name: 'Brand Logo 1', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo01.avif' },
+      { name: 'Brand Logo 2', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo02.avif' },
+      { name: 'Brand Logo 3', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo03.avif' },
+      { name: 'Brand Logo 4', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo04.avif' },
+      { name: 'Brand Logo 5', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo05.avif' },
+      { name: 'Brand Logo 6', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo06.avif' },
+      { name: 'Brand Logo 7', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/LOGO07.avif' },
+      { name: 'Brand Logo 8', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo08.avif' },
+      { name: 'Brand Logo 9', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo09.avif' },
+      { name: 'Brand Logo 10', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo10.avif' },
+      { name: 'Brand Logo 11', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo11.avif' },
+      { name: 'Brand Logo 12', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo12.avif' },
+      { name: 'Brand Logo 13', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo13.avif' },
+      { name: 'Brand Logo 15', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo15.avif' },
+      { name: 'Brand Logo 15-1', url: 'https://baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo15-1.jpg' },
+      { name: 'Brand Logo 16', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo16.avif' },
+      { name: 'Brand Logo 17', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo17.avif' },
+      { name: 'Brand Logo 18', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo18.avif' },
+      { name: 'Brand Logo 19', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo19.avif' },
+      { name: 'Brand Logo 20', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo20.avif' },
+      { name: 'Brand Logo 21', url: 'https://spcdn.shortpixel.ai/spio/ret_img,q_cdnize,to_auto,s_webp:avif/baytonhorticulturecentre.co.uk/wp-content/uploads/2024/12/logo21.avif' },
+    ];
+  }
 
   return (
     <div style={{ padding: '60px 0', minHeight: '80vh' }} className="fade-in">

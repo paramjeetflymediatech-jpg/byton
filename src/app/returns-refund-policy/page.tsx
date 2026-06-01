@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 export default function ReturnsRefundPolicyPage() {
   return (
     <div className="fade-in" style={{ backgroundColor: 'var(--light-bg)', minHeight: '100vh', padding: '50px 0' }}>
-      <div className="container" style={{ maxWidth: '850px' }}>
+      <div className="container" style={{ maxWidth: '1200px' }}>
         <article 
           style={{ 
             backgroundColor: 'white', 

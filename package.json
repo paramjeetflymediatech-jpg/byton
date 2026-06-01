@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "import:seo": "tsx src/scripts/import_seo_from_wordpress.ts",
-    "import:blogs": "tsx src/scripts/import_blogs_from_wordpress.ts"
+    "import:blogs": "tsx src/scripts/import_blogs_from_wordpress.ts",
+    "check:brands": "tsx src/scripts/check_brands.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.1",
