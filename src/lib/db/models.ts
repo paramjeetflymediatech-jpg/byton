@@ -2,12 +2,80 @@
 
 import { supabase } from '@/lib/supabase';
 
-// 1. User interface (used for auth)
-export interface User {
-  id: number;
-  email: string;
-  role: string;
-  // Add other fields as needed
+// 1. User model
+export class User {
+  id!: number;
+  email!: string;
+  role!: string;
+  passwordHash!: string;
+  createdAt?: string;
+
+  constructor(data: Partial<User>) {
+    Object.assign(this, data);
+  }
+
+  static fromRow(row: any): User {
+    return new User({
+      id: row.id,
+      email: row.email,
+      role: row.role,
+      passwordHash: row.password_hash ?? row.passwordHash,
+      createdAt: row.created_at ?? row.createdAt
+    });
+  }
+
+  static async findOne({ where }: { where: { email: string } }) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', where.email)
+      .limit(1);
+    if (error || !data || data.length === 0) return null;
+    return User.fromRow(data[0]);
+  }
+
+  static async create(payload: any) {
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        email: payload.email,
+        role: payload.role || 'USER',
+        password_hash: payload.passwordHash
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    return User.fromRow(data);
+  }
+
+  static async findAll() {
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) throw error;
+    return (data || []).map((item: any) => User.fromRow(item));
+  }
+
+  static async update(id: number, payload: any) {
+    const { data, error } = await supabase
+      .from('users')
+      .update({
+        role: payload.role,
+        email: payload.email
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return User.fromRow(data);
+  }
+
+  static async delete(id: number) {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return true;
+  }
 }
 
 // 2. Setting model for configuration values
@@ -49,8 +117,14 @@ export class Setting {
     return data;
   }
 
-
-
+  static async delete(key: string): Promise<boolean> {
+    const { error } = await supabase
+      .from('settings')
+      .delete()
+      .eq('key', key);
+    if (error) throw error;
+    return true;
+  }
 }
 
 // Placeholder interfaces for other entities (retain typings for compilation)
@@ -83,6 +157,56 @@ export class Category {
     return data ? new Category(data as any) : null;
   }
 
+  static async findAll(): Promise<Category[]> {
+    const { data, error } = await supabase.from('categories').select('*');
+    if (error) throw error;
+    return (data || []).map((item: any) => new Category(item));
+  }
+
+  static async create(payload: any): Promise<Category> {
+    const insertPayload: any = {
+      name: payload.name,
+      slug: payload.slug,
+      description: payload.description || '',
+      image: payload.image || ''
+    };
+    if (payload.id) {
+      insertPayload.id = payload.id;
+    }
+    const { data, error } = await supabase
+      .from('categories')
+      .insert(insertPayload)
+      .select()
+      .single();
+    if (error) throw error;
+    return new Category(data as any);
+  }
+
+  static async update(id: number, payload: any): Promise<Category> {
+    const { data, error } = await supabase
+      .from('categories')
+      .update({
+        name: payload.name,
+        slug: payload.slug,
+        description: payload.description,
+        image: payload.image
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return new Category(data as any);
+  }
+
+  static async delete(id: number): Promise<boolean> {
+    const { error } = await supabase
+      .from('categories')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+
   static async bulkCreate(records: any[]) {
     // Insert multiple categories; Supabase can accept an array.
     const { data, error } = await supabase.from('categories').insert(records);
@@ -90,7 +214,6 @@ export class Category {
     return data;
   }
 }
-
 
 export class Product {
   id!: number;
@@ -160,6 +283,66 @@ export class Product {
     const { data, error } = await supabase.from('products').select('*');
     if (error) throw error;
     return (data || []).map((item: any) => Product.fromRow(item));
+  }
+
+  static async create(payload: any): Promise<Product> {
+    const insertPayload: any = {
+      title: payload.title,
+      slug: payload.slug,
+      description: payload.description || '',
+      excerpt: payload.excerpt || '',
+      price: payload.price,
+      regular_price: payload.regularPrice,
+      sale_price: payload.salePrice,
+      sku: payload.sku || '',
+      stock: payload.stock || 0,
+      stock_status: payload.stockStatus || 'instock',
+      weight: payload.weight || 0.0,
+      image: payload.image || ''
+    };
+    if (payload.id) {
+      insertPayload.id = payload.id;
+    }
+    const { data, error } = await supabase
+      .from('products')
+      .insert(insertPayload)
+      .select()
+      .single();
+    if (error) throw error;
+    return Product.fromRow(data);
+  }
+
+  static async update(id: number, payload: any): Promise<Product> {
+    const { data, error } = await supabase
+      .from('products')
+      .update({
+        title: payload.title,
+        slug: payload.slug,
+        description: payload.description,
+        excerpt: payload.excerpt,
+        price: payload.price,
+        regular_price: payload.regularPrice,
+        sale_price: payload.salePrice,
+        sku: payload.sku,
+        stock: payload.stock,
+        stock_status: payload.stockStatus,
+        weight: payload.weight,
+        image: payload.image
+      })
+      .eq('id', id)
+      .select()
+      .single();
+    if (error) throw error;
+    return Product.fromRow(data);
+  }
+
+  static async delete(id: number): Promise<boolean> {
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    return true;
   }
 
   async getCategories() {

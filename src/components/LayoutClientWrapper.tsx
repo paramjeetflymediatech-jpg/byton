@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
+import { SessionProvider } from 'next-auth/react';
 import Header from './Header';
 import Footer from './Footer';
 import CartDrawer from './CartDrawer';
@@ -12,13 +13,13 @@ export default function LayoutClientWrapper({ children }: { children: React.Reac
   const isAuthOrAdmin = pathname?.startsWith('/login') || pathname?.startsWith('/admin') || pathname?.startsWith('/register');
 
   return (
-    <>
-      {<Header />}
-      {<CartDrawer />}
+    <SessionProvider>
+      {!isAuthOrAdmin && <Header />}
+      {!isAuthOrAdmin && <CartDrawer />}
       <main style={{ minHeight: isAuthOrAdmin ? '100vh' : '60vh', paddingBottom: isAuthOrAdmin ? '0' : '60px' }}>
         {children}
       </main>
-      {<Footer />}
-    </>
+      {!isAuthOrAdmin && <Footer />}
+    </SessionProvider>
   );
 }

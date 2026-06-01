@@ -1,6 +1,8 @@
 import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import type { NextAuthOptions } from 'next-auth';
+import { User } from '@/lib/db/models';
+import bcrypt from 'bcrypt';
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -11,14 +13,31 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        // For simple testing, we provide a default hardcoded admin account
-        // Later this can query your Supabase users table.
-        if (credentials?.email === 'admin@admin.com' && credentials?.password === 'admin123') {
-          return { id: '1', name: 'Admin', email: 'admin@admin.com', role: 'ADMIN' };
+        if (!credentials?.email || !credentials?.password) {
+          return null;
         }
-        
-        // If login fails
-        return null;
+
+        try {
+          const user = await User.findOne({ where: { email: credentials.email } });
+          if (!user) {
+            return null;
+          }
+
+          const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+          if (!isValid) {
+            return null;
+          }
+
+          return {
+            id: String(user.id),
+            name: user.email.split('@')[0],
+            email: user.email,
+            role: user.role
+          };
+        } catch (error) {
+          console.error('Error during authorization:', error);
+          return null;
+        }
       }
     })
   ],

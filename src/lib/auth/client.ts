@@ -8,5 +8,8 @@
  */
 export function isAuthenticated(): boolean {
   if (typeof document === 'undefined') return false;
-  return document.cookie.includes('auth_token=');
+  return (
+    document.cookie.includes('next-auth.session-token') ||
+    document.cookie.includes('__Secure-next-auth.session-token')
+  );
 }

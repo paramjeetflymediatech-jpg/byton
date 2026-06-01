@@ -8,6 +8,8 @@ import LayoutClientWrapper from '../components/LayoutClientWrapper';
 import { Setting } from '../lib/db/models';
 import Script from 'next/script';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Shop For Garden Products Coventry, Urban Farming & Hydroponics UK - Bayton Horticulture Centre',
   description: 'Shop Bayton Horticulture for garden products, urban farming, CEA, grow lights, tents, & hydroponics gear in Coventry. Fast UK delivery or visit our superstore.',
@@ -18,15 +20,15 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Query Pixel configurations from database
-  let tiktokId = 'CTIKTOK123456';
-  let pinterestId = 'PINTAG789012';
+  // Query Pixel configurations from database, falling back to process.env first
+  let tiktokId = process.env.tiktok_pixel_id || process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID || 'CTIKTOK123456';
+  let pinterestId = process.env.pinterest_tag_id || process.env.NEXT_PUBLIC_PINTEREST_TAG_ID || 'PINTAG789012';
 
   try {
     const ttSetting = await Setting.findByPk('tiktok_pixel_id');
     const pinSetting = await Setting.findByPk('pinterest_tag_id');
-    if (ttSetting) tiktokId = ttSetting.value;
-    if (pinSetting) pinterestId = pinSetting.value;
+    if (ttSetting?.value) tiktokId = ttSetting.value;
+    if (pinSetting?.value) pinterestId = pinSetting.value;
   } catch (e) {
     console.warn('Could not read pixel configuration settings from database, using defaults.', e);
   }
