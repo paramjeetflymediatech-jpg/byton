@@ -99,11 +99,10 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
     }
   }
 
-  // 3. Build product where clause
   // Build Supabase filter conditions
   const filters: any = [];
   if (search) {
-    // ilike is case‑insensitive pattern match in Supabase
+    // ilike is case-insensitive pattern match in Supabase
     filters.push({ column: 'title', operator: 'ilike', value: `%${search}%` });
   }
   // Price range filter
@@ -119,18 +118,49 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
   };
   const sortConfig = sortMap[sort] || sortMap['latest'];
 
+  // Virtual/special slugs that don't map to a real DB category
+  const VIRTUAL_SLUGS: Record<string, string> = {
+    'best-selling': 'Best Selling',
+    'new-arrivals': 'New Arrivals',
+    'on-sale': 'On Sale',
+    'featured': 'Featured Products',
+  };
+  const isVirtualSlug = categorySlug in VIRTUAL_SLUGS;
+
   // 5. Fetch products
   let products: Product[] = [];
   try {
-    if (categorySlug === 'all') {
-      // Simple product fetch with filters
+    if (categorySlug === 'all' || isVirtualSlug) {
+      // For 'all' and virtual slugs: fetch all products with filters
       let query = supabase.from('products').select('*');
+
+      // For 'on-sale': only products with a sale_price set
+      if (categorySlug === 'on-sale') {
+        query = query.not('sale_price', 'is', null);
+      }
+
       filters.forEach((f: any) => {
         query = query.filter(f.column, f.operator, f.value);
       });
-      const { data, error } = await query.order(sortConfig.column, { ascending: sortConfig.order === 'asc' }).limit(1000);
+
+      // For virtual slugs, override the default sort to something meaningful
+      let effectiveSortConfig = sortConfig;
+      if (sort === 'latest') {
+        if (categorySlug === 'best-selling') {
+          // Proxy: in-stock first, then by price desc (higher-priced = popular)
+          effectiveSortConfig = { column: 'price', order: 'desc' };
+        } else if (categorySlug === 'new-arrivals') {
+          effectiveSortConfig = { column: 'id', order: 'desc' };
+        } else if (categorySlug === 'on-sale') {
+          effectiveSortConfig = { column: 'sale_price', order: 'asc' };
+        }
+      }
+
+      const { data, error } = await query
+        .order(effectiveSortConfig.column, { ascending: effectiveSortConfig.order === 'asc' })
+        .limit(1000);
       if (error) throw error;
-      products = data as Product[];
+      products = (data || []).map((row: any) => Product.fromRow(row));
     } else if (currentCategory) {
       // Fetch product IDs linked to this category via join table
       const { data: linkData, error: linkErr } = await supabase
@@ -148,14 +178,18 @@ export default async function ShopPage({ params, searchParams }: ShopPageProps) 
         });
         const { data, error } = await query.order(sortConfig.column, { ascending: sortConfig.order === 'asc' }).limit(1000);
         if (error) throw error;
-        products = data as Product[];
+        products = (data || []).map((row: any) => Product.fromRow(row));
       }
     }
   } catch (error: any) {
     console.error('Error fetching catalog products:', error);
   }
 
-  const categoryTitle = currentCategory ? currentCategory.name : 'All Products';
+  const categoryTitle = currentCategory
+    ? currentCategory.name
+    : isVirtualSlug
+    ? VIRTUAL_SLUGS[categorySlug]
+    : 'All Products';
 
   return (
     <div className="container" style={{ paddingTop: '40px' }}>

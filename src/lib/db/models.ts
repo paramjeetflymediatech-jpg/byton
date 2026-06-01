@@ -111,6 +111,25 @@ export class Product {
     Object.assign(this, data);
   }
 
+  // Map snake_case Supabase DB columns → camelCase Product fields
+  static fromRow(row: any): Product {
+    return new Product({
+      id: row.id,
+      title: row.title,
+      slug: row.slug,
+      description: row.description,
+      excerpt: row.excerpt,
+      price: row.price,
+      regularPrice: row.regular_price ?? row.regularPrice,
+      salePrice: row.sale_price ?? row.salePrice,
+      sku: row.sku,
+      stock: row.stock,
+      stockStatus: row.stock_status ?? row.stockStatus,
+      weight: row.weight,
+      image: row.image,
+    });
+  }
+
   static async findOne({ where }: { where: { slug: string } }) {
     const { data, error } = await supabase
       .from('products')
@@ -118,7 +137,7 @@ export class Product {
       .eq('slug', where.slug)
       .single();
     if (error) throw error;
-    return data ? new Product(data as any) : null;
+    return data ? Product.fromRow(data) : null;
   }
 
   static async findByPk(id: number) {
@@ -128,7 +147,7 @@ export class Product {
       .eq('id', id)
       .single();
     if (error) throw error;
-    return data ? new Product(data as any) : null;
+    return data ? Product.fromRow(data) : null;
   }
 
   static async bulkCreate(records: any[]) {
@@ -137,11 +156,10 @@ export class Product {
     return data;
   }
 
-
   static async findAll() {
     const { data, error } = await supabase.from('products').select('*');
     if (error) throw error;
-    return (data || []).map((item: any) => new Product(item));
+    return (data || []).map((item: any) => Product.fromRow(item));
   }
 
   async getCategories() {
@@ -177,17 +195,35 @@ export class Order {
     Object.assign(this, data);
   }
 
+  // Map snake_case Supabase DB columns → camelCase Order fields
+  static fromRow(row: any): Order {
+    return new Order({
+      id: row.id,
+      customerName: row.customer_name ?? row.customerName,
+      customerEmail: row.customer_email ?? row.customerEmail,
+      shippingAddress: row.shipping_address ?? row.shippingAddress,
+      shippingCity: row.shipping_city ?? row.shippingCity,
+      shippingPostcode: row.shipping_postcode ?? row.shippingPostcode,
+      shippingPhone: row.shipping_phone ?? row.shippingPhone,
+      totalAmount: row.total_amount ?? row.totalAmount,
+      shippingCost: row.shipping_cost ?? row.shippingCost,
+      status: row.status,
+      apcTrackingNumber: row.apc_tracking_number ?? row.apcTrackingNumber,
+      apcLabelUrl: row.apc_label_url ?? row.apcLabelUrl,
+    });
+  }
+
   static async findAll(_options?: any) {
     // Simple stub: fetch all orders. Options (include, order) are ignored for now.
     const { data, error } = await supabase.from('orders').select('*');
     if (error) throw error;
-    return (data || []).map((item: any) => new Order(item));
+    return (data || []).map((item: any) => Order.fromRow(item));
   }
 
   static async create(payload: any) {
     const { data, error } = await supabase.from('orders').insert(payload).single();
     if (error) throw error;
-    return new Order(data as any);
+    return Order.fromRow(data as any);
   }
 }
 

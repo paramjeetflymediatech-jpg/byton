@@ -30,8 +30,11 @@ export default function Footer() {
 
           {/* Useful Links Column */}
           <div>
-            <h3 className="footer-title">Customer Care</h3>
+            <h3 className="footer-title">Company Info</h3>
             <ul className="footer-links">
+              <li><Link href="/about">About Us</Link></li>
+              <li><Link href="/blog">Blog</Link></li>
+              <li><Link href="/brands">Brands</Link></li>
               <li><Link href="/shipping">Shipping Information</Link></li>
               <li><Link href="/returns-refund-policy">Returns & Refund Policy</Link></li>
               <li><Link href="/privacy-policy">Privacy Policy</Link></li>

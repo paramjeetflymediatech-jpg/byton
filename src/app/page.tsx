@@ -24,7 +24,7 @@ export default async function HomePage() {
       console.error('Failed to query products:', error);
     } else {
       // @ts-ignore - supabase returns any[]; we trust shape matches Product interface
-      products = data as Product[];
+      products = (data || []).map((row: any) => Product.fromRow(row));
     }
   } catch (error) {
     console.error('Failed to query products for home page:', error);
@@ -39,7 +39,7 @@ export default async function HomePage() {
         const productIds = pcData.map((pc: any) => pc.product_id);
         const { data: pData } = await supabase.from('products').select('*').in('id', productIds).limit(4);
         if (pData) {
-          furnitureProducts = pData as Product[];
+          furnitureProducts = pData.map((row: any) => Product.fromRow(row));
         }
       }
     }
