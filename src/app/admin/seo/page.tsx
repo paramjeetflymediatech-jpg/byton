@@ -7,8 +7,9 @@ export default function SeoPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({
-    id: '', // key in settings
-    productId: '',
+    id: 0,
+    pageType: 'custom',
+    pageId: '',
     metaTitle: '',
     metaDescription: '',
     keywords: '',
@@ -51,8 +52,9 @@ export default function SeoPage() {
 
   const handleOpenAdd = () => {
     setForm({
-      id: '',
-      productId: '',
+      id: 0,
+      pageType: 'custom',
+      pageId: '',
       metaTitle: '',
       metaDescription: '',
       keywords: '',
@@ -69,7 +71,8 @@ export default function SeoPage() {
   const handleOpenEdit = (seo: any) => {
     setForm({
       id: seo.id,
-      productId: seo.productId || '',
+      pageType: seo.pageType || 'custom',
+      pageId: seo.pageId || '',
       metaTitle: seo.metaTitle || '',
       metaDescription: seo.metaDescription || '',
       keywords: seo.keywords || '',
@@ -83,11 +86,11 @@ export default function SeoPage() {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this SEO configuration?')) return;
 
     try {
-      const res = await fetch(`/api/admin/seo?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/admin/seo?id=${id}`, {
         method: 'DELETE'
       });
       const data = await res.json();
@@ -207,10 +210,14 @@ export default function SeoPage() {
                 {currentItems.map((s: any) => (
                   <tr key={s.id}>
                     <td>
-                      {s.productId ? (
-                        <span className="badge-status badge-success" style={{ fontWeight: 600 }}>Product ID: {s.productId}</span>
+                      {s.pageType ? (
+                        <span style={{ padding: '2px 8px', borderRadius: '10px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase' as const,
+                          backgroundColor: s.pageType === 'product' ? '#ecfdf5' : '#eff6ff',
+                          color: s.pageType === 'product' ? '#059669' : '#2563eb' }}>
+                          {s.pageType}
+                        </span>
                       ) : (
-                        <span style={{ fontSize: '13px', fontFamily: 'monospace', color: '#090a0c', wordBreak: 'break-all' }}>{s.canonicalUrl}</span>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>custom</span>
                       )}
                     </td>
                     <td style={{ fontWeight: 600 }}>{s.metaTitle || '-'}</td>
@@ -310,26 +317,29 @@ export default function SeoPage() {
             <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '75vh', overflowY: 'auto' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Product ID (if for Product)</label>
-                  <input
-                    type="text"
-                    name="productId"
-                    value={form.productId}
-                    onChange={handleChange}
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Page Type</label>
+                  <select
+                    name="pageType"
+                    value={(form as any).pageType}
+                    onChange={(e) => setForm(prev => ({ ...prev, pageType: e.target.value }))}
                     className="form-control"
-                    placeholder="e.g. 1045"
                     disabled={isEditing}
-                  />
+                  >
+                    <option value="custom">Custom</option>
+                    <option value="product">Product</option>
+                    <option value="post">Blog Post</option>
+                    <option value="page">Page</option>
+                  </select>
                 </div>
                 <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Canonical / Page URL</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Page / Product ID</label>
                   <input
                     type="text"
-                    name="canonicalUrl"
-                    value={form.canonicalUrl}
+                    name="pageId"
+                    value={(form as any).pageId}
                     onChange={handleChange}
                     className="form-control"
-                    placeholder="e.g. /shop/indoor-plants"
+                    placeholder="e.g. 1045 or about-us"
                     disabled={isEditing}
                   />
                 </div>

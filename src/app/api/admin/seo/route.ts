@@ -1,29 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
-import { Setting } from '@/lib/db/models';
-
-// Helper to slugify canonical URL for keys
-function makeKeyFriendly(url: string) {
-  return url
-    .toLowerCase()
-    .replace(/https?:\/\//, '')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
+import { Seo } from '@/lib/db/models';
 
 export async function GET() {
   try {
-    const allSettings = await Setting.findAll();
-    const seoData = allSettings
-      .filter((s) => s.key.startsWith('seo_'))
-      .map((s) => {
-        try {
-          return JSON.parse(s.value);
-        } catch {
-          return null;
-        }
-      })
-      .filter(Boolean);
-
+    const seoData = await Seo.findAll();
     return NextResponse.json({ success: true, seo: seoData });
   } catch (error: any) {
     console.error('Error fetching SEO data:', error);
@@ -38,7 +18,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      productId,
+      pageType,
+      pageId,
+      slug,
       metaTitle,
       metaDescription,
       keywords,
@@ -48,38 +30,30 @@ export async function POST(req: NextRequest) {
       ogImageUrl
     } = body;
 
-    // Validate we have at least productId or canonicalUrl
-    if (!productId && !canonicalUrl) {
+    if (!pageType && !canonicalUrl && !slug) {
       return NextResponse.json(
-        { error: 'Product ID or Canonical URL is required.' },
+        { error: 'At least one of pageType, slug, or canonicalUrl is required.' },
         { status: 400 }
       );
     }
 
-    const keySuffix = productId ? `product_${productId}` : `page_${makeKeyFriendly(canonicalUrl)}`;
-    const key = `seo_${keySuffix}`;
-
-    const seoRecord = {
-      id: key,
-      productId: productId || '',
+    const seo = await Seo.upsert({
+      pageType: pageType || 'custom',
+      pageId: pageId || slug || canonicalUrl || '',
+      slug: slug || '',
+      canonicalUrl: canonicalUrl || '',
       metaTitle: metaTitle || '',
       metaDescription: metaDescription || '',
       keywords: keywords || '',
-      canonicalUrl: canonicalUrl || '',
       ogTitle: ogTitle || '',
       ogDescription: ogDescription || '',
       ogImageUrl: ogImageUrl || ''
-    };
-
-    await Setting.upsert({
-      key,
-      value: JSON.stringify(seoRecord)
     });
 
     return NextResponse.json({
       success: true,
       message: 'SEO configuration saved successfully.',
-      seo: seoRecord
+      seo
     });
   } catch (error: any) {
     console.error('Error saving SEO data:', error);
@@ -93,16 +67,16 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const key = searchParams.get('id');
+    const id = searchParams.get('id');
 
-    if (!key || !key.startsWith('seo_')) {
+    if (!id) {
       return NextResponse.json(
-        { error: 'Valid SEO configuration ID is required.' },
+        { error: 'SEO record ID is required.' },
         { status: 400 }
       );
     }
 
-    await Setting.delete(key);
+    await Seo.delete(Number(id));
 
     return NextResponse.json({
       success: true,

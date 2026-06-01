@@ -127,6 +127,222 @@ export class Setting {
   }
 }
 
+// 3. Seo model — dedicated table for SEO metadata
+export class Seo {
+  id!: number;
+  pageType!: string;
+  pageId!: string;
+  slug!: string;
+  canonicalUrl!: string;
+  metaTitle!: string;
+  metaDescription!: string;
+  keywords!: string;
+  ogTitle!: string;
+  ogDescription!: string;
+  ogImageUrl!: string;
+  createdAt?: string;
+  updatedAt?: string;
+
+  constructor(data: Partial<Seo>) {
+    Object.assign(this, data);
+  }
+
+  static fromRow(row: any): Seo {
+    return new Seo({
+      id: row.id,
+      pageType: row.page_type ?? row.pageType ?? '',
+      pageId: row.page_id ?? row.pageId ?? '',
+      slug: row.slug ?? '',
+      canonicalUrl: row.canonical_url ?? row.canonicalUrl ?? '',
+      metaTitle: row.meta_title ?? row.metaTitle ?? '',
+      metaDescription: row.meta_description ?? row.metaDescription ?? '',
+      keywords: row.keywords ?? '',
+      ogTitle: row.og_title ?? row.ogTitle ?? '',
+      ogDescription: row.og_description ?? row.ogDescription ?? '',
+      ogImageUrl: row.og_image_url ?? row.ogImageUrl ?? '',
+      createdAt: row.created_at ?? row.createdAt,
+      updatedAt: row.updated_at ?? row.updatedAt,
+    });
+  }
+
+  static async findAll(): Promise<Seo[]> {
+    const { data, error } = await supabase.from('seo').select('*').order('id', { ascending: false });
+    if (error) throw error;
+    return (data || []).map((item: any) => Seo.fromRow(item));
+  }
+
+  static async findByPk(id: number): Promise<Seo | null> {
+    const { data, error } = await supabase.from('seo').select('*').eq('id', id).single();
+    if (error || !data) return null;
+    return Seo.fromRow(data);
+  }
+
+  static async findByPage(pageType: string, pageId: string): Promise<Seo | null> {
+    const { data, error } = await supabase
+      .from('seo')
+      .select('*')
+      .eq('page_type', pageType)
+      .eq('page_id', pageId)
+      .limit(1);
+    if (error || !data || data.length === 0) return null;
+    return Seo.fromRow(data[0]);
+  }
+
+  static async findBySlug(slug: string, pageType = 'post'): Promise<Seo | null> {
+    const { data, error } = await supabase
+      .from('seo')
+      .select('*')
+      .eq('slug', slug)
+      .eq('page_type', pageType)
+      .limit(1);
+    if (error || !data || data.length === 0) return null;
+    return Seo.fromRow(data[0]);
+  }
+
+  static async upsert(payload: Partial<Seo>): Promise<Seo> {
+    const row = {
+      page_type: payload.pageType || '',
+      page_id: payload.pageId || '',
+      slug: payload.slug || '',
+      canonical_url: payload.canonicalUrl || '',
+      meta_title: payload.metaTitle || '',
+      meta_description: payload.metaDescription || '',
+      keywords: payload.keywords || '',
+      og_title: payload.ogTitle || '',
+      og_description: payload.ogDescription || '',
+      og_image_url: payload.ogImageUrl || '',
+    };
+    const { data, error } = await supabase
+      .from('seo')
+      .upsert(row, { onConflict: 'page_type,page_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return Seo.fromRow(data);
+  }
+
+  static async delete(id: number): Promise<boolean> {
+    const { error } = await supabase.from('seo').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+}
+
+// 4. Blog model — dedicated table for WordPress blog content
+export class Blog {
+  id!: number;
+  wpId!: number;
+  slug!: string;
+  title!: string;
+  content!: string;
+  excerpt!: string;
+  featuredImage!: string;
+  categories!: string;
+  tags!: string;
+  author!: string;
+  status!: string;
+  publishedAt?: string;
+  canonicalUrl!: string;
+  createdAt?: string;
+  updatedAt?: string;
+
+  constructor(data: Partial<Blog>) {
+    Object.assign(this, data);
+  }
+
+  static fromRow(row: any): Blog {
+    return new Blog({
+      id: row.id,
+      wpId: row.wp_id ?? row.wpId,
+      slug: row.slug ?? '',
+      title: row.title ?? '',
+      content: row.content ?? '',
+      excerpt: row.excerpt ?? '',
+      featuredImage: row.featured_image ?? row.featuredImage ?? '',
+      categories: row.categories ?? '',
+      tags: row.tags ?? '',
+      author: row.author ?? '',
+      status: row.status ?? 'publish',
+      publishedAt: row.published_at ?? row.publishedAt,
+      canonicalUrl: row.canonical_url ?? row.canonicalUrl ?? '',
+      createdAt: row.created_at ?? row.createdAt,
+      updatedAt: row.updated_at ?? row.updatedAt,
+    });
+  }
+
+  static async findAll(options?: { limit?: number; offset?: number }): Promise<Blog[]> {
+    let query = supabase.from('blogs').select('*').order('published_at', { ascending: false });
+    if (options?.limit) query = query.limit(options.limit);
+    if (options?.offset) query = query.range(options.offset, options.offset + (options.limit ?? 20) - 1);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data || []).map((item: any) => Blog.fromRow(item));
+  }
+
+  static async count(): Promise<number> {
+    const { count, error } = await supabase.from('blogs').select('*', { count: 'exact', head: true });
+    if (error) throw error;
+    return count ?? 0;
+  }
+
+  static async findByPk(id: number): Promise<Blog | null> {
+    const { data, error } = await supabase.from('blogs').select('*').eq('id', id).single();
+    if (error || !data) return null;
+    return Blog.fromRow(data);
+  }
+
+  static async findBySlug(slug: string): Promise<Blog | null> {
+    const { data, error } = await supabase.from('blogs').select('*').eq('slug', slug).single();
+    if (error || !data) return null;
+    return Blog.fromRow(data);
+  }
+
+  static async upsert(payload: Partial<Blog>): Promise<Blog> {
+    const row = {
+      wp_id: payload.wpId,
+      slug: payload.slug ?? '',
+      title: payload.title ?? '',
+      content: payload.content ?? '',
+      excerpt: payload.excerpt ?? '',
+      featured_image: payload.featuredImage ?? '',
+      categories: payload.categories ?? '',
+      tags: payload.tags ?? '',
+      author: payload.author ?? '',
+      status: payload.status ?? 'publish',
+      published_at: payload.publishedAt ?? null,
+      canonical_url: payload.canonicalUrl ?? '',
+    };
+    const { data, error } = await supabase
+      .from('blogs')
+      .upsert(row, { onConflict: 'wp_id' })
+      .select()
+      .single();
+    if (error) throw error;
+    return Blog.fromRow(data);
+  }
+
+  static async update(id: number, payload: Partial<Blog>): Promise<Blog> {
+    const row: any = {};
+    if (payload.title !== undefined) row.title = payload.title;
+    if (payload.content !== undefined) row.content = payload.content;
+    if (payload.excerpt !== undefined) row.excerpt = payload.excerpt;
+    if (payload.featuredImage !== undefined) row.featured_image = payload.featuredImage;
+    if (payload.categories !== undefined) row.categories = payload.categories;
+    if (payload.tags !== undefined) row.tags = payload.tags;
+    if (payload.status !== undefined) row.status = payload.status;
+    if (payload.canonicalUrl !== undefined) row.canonical_url = payload.canonicalUrl;
+    const { data, error } = await supabase.from('blogs').update(row).eq('id', id).select().single();
+    if (error) throw error;
+    return Blog.fromRow(data);
+  }
+
+  static async delete(id: number): Promise<boolean> {
+    const { error } = await supabase.from('blogs').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  }
+}
+
 // Placeholder interfaces for other entities (retain typings for compilation)
 // Initialize database (placeholder for Sequelize sync). Currently a no‑op for Supabase.
 export async function initDatabase(force: boolean = false): Promise<void> {

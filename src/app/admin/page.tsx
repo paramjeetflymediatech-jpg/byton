@@ -25,6 +25,7 @@ import SeoPage from './seo/page';
 import ProductsPage from './products/page';
 import CategoriesPage from './categories/page';
 import UsersPage from './users/page';
+import BlogPage from './blog/page';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 // Session guard – ensure only authenticated admin can view
@@ -49,7 +50,7 @@ export default function AdminPage() {
 
 function AdminDashboard() {
   const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState<'orders' | 'settings' | 'seo' | 'products' | 'categories' | 'users'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'settings' | 'seo' | 'products' | 'categories' | 'users' | 'blog'>('orders');
   const [orders, setOrders] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
 
@@ -356,6 +357,16 @@ function AdminDashboard() {
             </button>
           </li>
           
+          <li>
+            <button 
+              onClick={() => setActiveTab('blog')}
+              className={`menu-item-btn ${activeTab === 'blog' ? 'active' : ''}`}
+            >
+              <FileText size={20} />
+              <span>Blog &amp; Pages</span>
+            </button>
+          </li>
+
           <li>
             <button 
               onClick={() => setActiveTab('seo')}
@@ -689,6 +700,7 @@ function AdminDashboard() {
           )}
 
           {/* Subpages Tab components */}
+          {activeTab === 'blog' && <BlogPage />}
           {activeTab === 'seo' && <SeoPage />}
           {activeTab === 'products' && <ProductsPage />}
           {activeTab === 'categories' && <CategoriesPage />}
