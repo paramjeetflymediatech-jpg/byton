@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCart } from '../lib/context/CartContext';
 import { ShoppingBag, Search, Menu, X, Leaf, User, LogIn } from 'lucide-react';
-import { isAuthenticated } from '../lib/auth/client';
+import { useSession } from 'next-auth/react';
 
 export default function Header() {
   const { cartCount, setIsCartOpen } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
+  const { data: session } = useSession();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,17 +57,21 @@ export default function Header() {
               {/* User button with auth check */}
               <button
                 onClick={() => {
-                  if (isAuthenticated()) {
-                    router.push('/admin');
+                  if (session) {
+                    if ((session.user as any)?.role === 'ADMIN') {
+                      router.push('/admin');
+                    } else {
+                      router.push('/profile');
+                    }
                   } else {
                     router.push('/login');
                   }
                 }}
                 className="icon-btn"
-                title={isAuthenticated() ? 'Dashboard' : 'Login'}
+                title={session ? 'My Account' : 'Login'}
                 type="button"
               >
-                {isAuthenticated() ? <User size={22} /> : <LogIn size={22} />}
+                {session ? <User size={22} /> : <LogIn size={22} />}
               </button>
 
               {/* Shopping Cart button */}

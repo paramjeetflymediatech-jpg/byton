@@ -49,34 +49,17 @@ export default function HeroCarousel() {
             opacity: index === currentSlide ? 1 : 0,
             transition: 'opacity 0.8s ease-in-out',
             zIndex: index === currentSlide ? 1 : 0,
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.6)), url(${slide.image})`,
-            backgroundSize: 'cover',
+            backgroundImage: `url(${slide.image})`,
+            backgroundSize: 'contain',
             backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            backgroundColor: '#090a0c', // Dark background to match the header/theme
             display: 'flex',
             alignItems: 'center',
-            minHeight: '500px'
+            minHeight: '260px'
           }}
         >
-          <div className="container" style={{ position: 'relative', zIndex: 2, width: '100%' }}>
-            <div style={{ maxWidth: '600px', transform: index === currentSlide ? 'translateY(0)' : 'translateY(20px)', opacity: index === currentSlide ? 1 : 0, transition: 'all 0.8s ease 0.3s' }}>
-              <h1 style={{ color: 'white', fontSize: '3rem', fontWeight: 800, lineHeight: 1.2, marginBottom: '20px' }}>
-                {slide.title}
-              </h1>
-              <p style={{ color: '#e2e8f0', fontSize: '1.1rem', marginBottom: '32px', lineHeight: 1.6 }}>
-                {slide.desc}
-              </p>
-              {slide.buttons && (
-                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                  <Link href="/shop/all" style={{ padding: '12px 24px', borderRadius: '8px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#5EB446', color: 'white', textDecoration: 'none' }}>
-                    Shop Catalog <ArrowRight size={18} />
-                  </Link>
-                  <Link href="/shop/garden-furniture" style={{ padding: '12px 24px', borderRadius: '8px', fontWeight: 600, backgroundColor: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(4px)', textDecoration: 'none' }}>
-                    Garden Furniture
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
+          {/* Text and buttons removed as requested */}
         </div>
       ))}
 
@@ -86,13 +69,13 @@ export default function HeroCarousel() {
         style={{
           position: 'absolute', top: '50%', left: '20px', transform: 'translateY(-50%)',
           zIndex: 10, background: 'rgba(0,0,0,0.3)', color: 'white', border: 'none',
-          borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', transition: 'background 0.3s ease', backdropFilter: 'blur(4px)'
         }}
         onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.6)'}
         onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.3)'}
       >
-        <ChevronLeft size={28} />
+        <ChevronLeft size={20} />
       </button>
 
       <button 
@@ -100,13 +83,13 @@ export default function HeroCarousel() {
         style={{
           position: 'absolute', top: '50%', right: '20px', transform: 'translateY(-50%)',
           zIndex: 10, background: 'rgba(0,0,0,0.3)', color: 'white', border: 'none',
-          borderRadius: '50%', width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center',
           cursor: 'pointer', transition: 'background 0.3s ease', backdropFilter: 'blur(4px)'
         }}
         onMouseOver={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.6)'}
         onMouseOut={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.3)'}
       >
-        <ChevronRight size={28} />
+        <ChevronRight size={20} />
       </button>
 
       {/* Dots */}

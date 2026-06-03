@@ -27,7 +27,17 @@ export default function LoginPage() {
       setError('Invalid credentials. Please try again.');
       setLoading(false);
     } else {
-      router.push('/admin');
+      try {
+        const sessionRes = await fetch('/api/auth/session');
+        const session = await sessionRes.json();
+        if (session?.user?.role === 'ADMIN') {
+          router.push('/admin');
+        } else {
+          router.push('/profile');
+        }
+      } catch (err) {
+        router.push('/profile');
+      }
       router.refresh();
     }
   };

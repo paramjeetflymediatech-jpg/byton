@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
 import { Product } from '../lib/db/models';
+import { getCachedProducts, getCachedCategories } from '@/lib/redis';
 import { Leaf, ArrowRight, Lightbulb, Package, Sprout, Wind, Hammer, Sofa, Sparkles, Smile, ShieldCheck } from 'lucide-react';
 import AddToCartButton from '@/components/AddToCartButton';
 import Link from 'next/link';
@@ -11,40 +11,23 @@ import BrandsCarousel from '@/components/BrandsCarousel';
 export const dynamic = 'force-dynamic';
 export default async function HomePage() {
   let products: Product[] = [];
-  
-  try {
-    // Fetch top 8 products from Supabase
-    // Ensure a 'products' table exists in Supabase with columns matching the Product interface (id, title, slug, description, excerpt, price, regularPrice, salePrice, sku, stock, stockStatus, weight, image)
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('id', { ascending: false })
-      .limit(8);
-    if (error) {
-      console.error('Failed to query products:', error);
-    } else {
-      // @ts-ignore - supabase returns any[]; we trust shape matches Product interface
-      products = (data || []).map((row: any) => Product.fromRow(row));
-    }
-  } catch (error) {
-    console.error('Failed to query products for home page:', error);
-  }
-
   let furnitureProducts: Product[] = [];
+
   try {
-    const { data: catData } = await supabase.from('categories').select('id').eq('slug', 'garden-furniture').single();
-    if (catData) {
-      const { data: pcData } = await supabase.from('product_categories').select('product_id').eq('category_id', catData.id);
-      if (pcData && pcData.length > 0) {
-        const productIds = pcData.map((pc: any) => pc.product_id);
-        const { data: pData } = await supabase.from('products').select('*').in('id', productIds).limit(4);
-        if (pData) {
-          furnitureProducts = pData.map((row: any) => Product.fromRow(row));
-        }
-      }
+    const allProducts = await getCachedProducts();
+    // Slice top 8 products and map to Product instance
+    products = allProducts.slice(0, 8).map((p: any) => Product.fromRow(p));
+
+    const categories = await getCachedCategories();
+    const furnitureCat = categories.find((c: any) => c.slug === 'garden-furniture');
+    if (furnitureCat) {
+      furnitureProducts = allProducts
+        .filter((p: any) => p.categoryIds.includes(furnitureCat.id))
+        .slice(0, 4)
+        .map((p: any) => Product.fromRow(p));
     }
   } catch (error) {
-    console.error('Failed to fetch furniture products:', error);
+    console.error('Failed to fetch cached products for homepage:', error);
   }
 
   // Pre-defined categories for the visual department grid

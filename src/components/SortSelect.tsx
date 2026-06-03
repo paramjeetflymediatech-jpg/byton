@@ -5,17 +5,22 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 interface SortSelectProps {
   currentSort: string;
+  onChange?: (val: string) => void;
 }
 
-export default function SortSelect({ currentSort }: SortSelectProps) {
+export default function SortSelect({ currentSort, onChange }: SortSelectProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const handleSortChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.set('sort', e.target.value);
-    router.push(`${pathname}?${nextParams.toString()}`);
+    if (onChange) {
+      onChange(e.target.value);
+    } else {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set('sort', e.target.value);
+      router.push(`${pathname}?${nextParams.toString()}`);
+    }
   };
 
   return (

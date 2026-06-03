@@ -620,7 +620,25 @@ export class Order {
   }
 
   static async create(payload: any) {
-    const { data, error } = await supabase.from('orders').insert(payload).single();
+    const dbPayload = {
+      id: payload.id,
+      customer_name: payload.customerName,
+      customer_email: payload.customerEmail,
+      shipping_address: payload.shippingAddress,
+      shipping_city: payload.shippingCity,
+      shipping_postcode: payload.shippingPostcode,
+      shipping_phone: payload.shippingPhone,
+      total_amount: payload.totalAmount,
+      shipping_cost: payload.shippingCost,
+      status: payload.status,
+      apc_tracking_number: payload.apcTrackingNumber,
+      apc_label_url: payload.apcLabelUrl
+    };
+    const { data, error } = await supabase
+      .from('orders')
+      .insert(dbPayload)
+      .select()
+      .single();
     if (error) throw error;
     return Order.fromRow(data as any);
   }
@@ -639,9 +657,27 @@ export class OrderItem {
   }
 
   static async create(payload: any) {
-    const { data, error } = await supabase.from('order_items').insert(payload).single();
+    const dbPayload = {
+      order_id: payload.orderId,
+      product_id: payload.productId,
+      product_title: payload.productTitle,
+      quantity: payload.quantity,
+      price: payload.price
+    };
+    const { data, error } = await supabase
+      .from('order_items')
+      .insert(dbPayload)
+      .select()
+      .single();
     if (error) throw error;
-    return new OrderItem(data as any);
+    return new OrderItem({
+      id: data.id,
+      orderId: data.order_id,
+      productId: data.product_id,
+      productTitle: data.product_title,
+      quantity: data.quantity,
+      price: data.price
+    } as any);
   }
 }
 

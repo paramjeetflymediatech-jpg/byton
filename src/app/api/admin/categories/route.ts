@@ -1,9 +1,10 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { Category } from '@/lib/db/models';
+import { getCachedCategories, invalidateCategoriesCache, invalidateProductsCache } from '@/lib/redis';
 
 export async function GET() {
   try {
-    const categories = await Category.findAll();
+    const categories = await getCachedCategories();
     return NextResponse.json({ success: true, categories });
   } catch (error: any) {
     console.error('Error fetching categories:', error);
@@ -33,23 +34,24 @@ export async function POST(req: NextRequest) {
       image: image || ''
     };
 
+    let result;
     if (id) {
       // Update
-      const updatedCategory = await Category.update(Number(id), payload);
-      return NextResponse.json({
-        success: true,
-        message: 'Category updated successfully.',
-        category: updatedCategory
-      });
+      result = await Category.update(Number(id), payload);
     } else {
       // Create
-      const newCategory = await Category.create(payload);
-      return NextResponse.json({
-        success: true,
-        message: 'Category created successfully.',
-        category: newCategory
-      });
+      result = await Category.create(payload);
     }
+
+    // Invalidate caches
+    await invalidateCategoriesCache();
+    await invalidateProductsCache();
+
+    return NextResponse.json({
+      success: true,
+      message: id ? 'Category updated successfully.' : 'Category created successfully.',
+      category: result
+    });
   } catch (error: any) {
     console.error('Error saving category:', error);
     return NextResponse.json(
@@ -72,6 +74,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     await Category.delete(Number(id));
+
+    // Invalidate caches
+    await invalidateCategoriesCache();
+    await invalidateProductsCache();
 
     return NextResponse.json({
       success: true,

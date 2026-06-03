@@ -17,6 +17,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "bcrypt": "^6.0.0",
     "dotenv": "^17.4.2",
+    "ioredis": "^5.11.0",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^1.16.0",
     "mysql2": "^3.22.3",
@@ -35,7 +36,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
-    "typescript": "^5",
-    "tsx": "^4"
+    "tsx": "^4",
+    "typescript": "^5"
   }
 }

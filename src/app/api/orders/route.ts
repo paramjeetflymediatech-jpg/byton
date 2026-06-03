@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Order, OrderItem, Product } from '../../../lib/db/models';
 import { APCService } from '../../../lib/integrations/apc';
+import { OpayoService } from '../../../lib/integrations/opayo';
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,7 +13,8 @@ export async function POST(req: NextRequest) {
       shippingCity,
       shippingPostcode,
       shippingPhone,
-      cartItems // Array of { id, price, quantity }
+      cartItems, // Array of { id, price, quantity }
+      opayoToken
     } = body;
 
     // Validate inputs
@@ -52,9 +54,34 @@ export async function POST(req: NextRequest) {
 
     // 2. Query shipping cost from APC
     const shippingQuote = await APCService.calculateRate(totalWeight, shippingPostcode);
-
-    // 3. Book shipment with APC Overnight
+    const finalAmount = subtotal + shippingQuote.cost;
     const orderId = `BHC-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    // 3. Process payment via Opayo Gateway
+    if (!opayoToken) {
+      return NextResponse.json(
+        { error: 'Payment card token is required to complete transaction.' },
+        { status: 400 }
+      );
+    }
+
+    const paymentResult = await OpayoService.processPayment({
+      token: opayoToken,
+      amount: finalAmount,
+      currency: 'GBP',
+      customerName,
+      customerEmail,
+      orderId
+    });
+
+    if (!paymentResult.success) {
+      return NextResponse.json(
+        { error: paymentResult.errorMessage || 'Payment was declined by Opayo.' },
+        { status: 402 } // Payment Required / Declined
+      );
+    }
+
+    // 4. Book shipment with APC Overnight
     const apcBooking = await APCService.bookConsignment({
       orderId,
       customerName,
@@ -66,7 +93,7 @@ export async function POST(req: NextRequest) {
       totalWeightKg: totalWeight
     });
 
-    // 4. Create Order in DB
+    // 5. Create Order in DB
     const finalOrder = await Order.create({
       id: orderId,
       customerName,
@@ -75,14 +102,14 @@ export async function POST(req: NextRequest) {
       shippingCity,
       shippingPostcode,
       shippingPhone,
-      totalAmount: subtotal + shippingQuote.cost,
+      totalAmount: finalAmount,
       shippingCost: shippingQuote.cost,
       status: 'completed', // paid and finalized
       apcTrackingNumber: apcBooking.trackingNumber,
       apcLabelUrl: apcBooking.labelUrl
     });
 
-    // 5. Create OrderItems in DB
+    // 6. Create OrderItems in DB
     for (const item of itemsToCreate) {
       await OrderItem.create({
         orderId: finalOrder.id,
@@ -96,7 +123,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       order: finalOrder,
-      items: itemsToCreate
+      items: itemsToCreate,
+      opayoTransactionId: paymentResult.transactionId
     });
   } catch (error) {
     console.error('Error creating checkout order:', error);

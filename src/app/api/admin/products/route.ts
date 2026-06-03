@@ -1,10 +1,38 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { Product } from '@/lib/db/models';
+import { supabase } from '@/lib/supabase';
+import { getCachedProducts, invalidateProductsCache } from '@/lib/redis';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const products = await Product.findAll();
-    return NextResponse.json({ success: true, products });
+    const { searchParams } = new URL(req.url);
+    const page = parseInt(searchParams.get('page') || '1', 10) || 1;
+    const limit = parseInt(searchParams.get('limit') || '10', 10) || 10;
+    const search = searchParams.get('search') || '';
+
+    const allProducts = await getCachedProducts();
+
+    let filtered = allProducts;
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      filtered = allProducts.filter((p: any) =>
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.sku || '').toLowerCase().includes(q) ||
+        (p.slug || '').toLowerCase().includes(q)
+      );
+    }
+
+    const total = filtered.length;
+    const offset = (page - 1) * limit;
+    const paginatedProducts = filtered.slice(offset, offset + limit);
+
+    return NextResponse.json({
+      success: true,
+      products: paginatedProducts,
+      total,
+      page,
+      limit
+    });
   } catch (error: any) {
     console.error('Error fetching products:', error);
     return NextResponse.json(
@@ -30,7 +58,8 @@ export async function POST(req: NextRequest) {
       stock,
       stockStatus,
       weight,
-      image
+      image,
+      categoryIds
     } = body;
 
     if (!title || !slug || price === undefined) {
@@ -61,23 +90,51 @@ export async function POST(req: NextRequest) {
       image: image || ''
     };
 
+    let savedProduct;
     if (id) {
       // Update
-      const updatedProduct = await Product.update(Number(id), payload);
-      return NextResponse.json({
-        success: true,
-        message: 'Product updated successfully.',
-        product: updatedProduct
-      });
+      savedProduct = await Product.update(Number(id), payload);
     } else {
       // Create
-      const newProduct = await Product.create(payload);
-      return NextResponse.json({
-        success: true,
-        message: 'Product created successfully.',
-        product: newProduct
-      });
+      savedProduct = await Product.create(payload);
     }
+
+    // Update categories links in the product_categories join table
+    if (categoryIds && Array.isArray(categoryIds)) {
+      // Delete existing
+      const { error: delErr } = await supabase
+        .from('product_categories')
+        .delete()
+        .eq('product_id', savedProduct.id);
+      
+      if (delErr) {
+        console.error('Error deleting product categories:', delErr);
+      }
+
+      // Insert new
+      if (categoryIds.length > 0) {
+        const insertRows = categoryIds.map((catId: any) => ({
+          product_id: savedProduct.id,
+          category_id: Number(catId)
+        }));
+        const { error: insErr } = await supabase
+          .from('product_categories')
+          .insert(insertRows);
+        
+        if (insErr) {
+          console.error('Error inserting product categories:', insErr);
+        }
+      }
+    }
+
+    // Invalidate products cache
+    await invalidateProductsCache();
+
+    return NextResponse.json({
+      success: true,
+      message: id ? 'Product updated successfully.' : 'Product created successfully.',
+      product: savedProduct
+    });
   } catch (error: any) {
     console.error('Error saving product:', error);
     return NextResponse.json(
@@ -100,6 +157,9 @@ export async function DELETE(req: NextRequest) {
     }
 
     await Product.delete(Number(id));
+
+    // Invalidate products cache
+    await invalidateProductsCache();
 
     return NextResponse.json({
       success: true,

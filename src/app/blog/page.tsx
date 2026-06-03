@@ -2,7 +2,9 @@ import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Blog } from '../../lib/db/models';
+import { getCachedBlogs } from '../../lib/redis';
 import { Calendar, Clock, BookOpen, ArrowRight } from 'lucide-react';
+import BlogSearchBar from '../../components/BlogSearchBar';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,19 +16,34 @@ export const metadata: Metadata = {
 interface BlogIndexPageProps {
   searchParams: Promise<{
     page?: string;
+    search?: string;
   }>;
 }
 
 export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps) {
   const resolvedSearchParams = await searchParams;
   const page = Math.max(1, Number(resolvedSearchParams.page ?? 1));
+  const search = resolvedSearchParams.search || '';
   const limit = 12;
-  const offset = (page - 1) * limit;
 
-  const [blogs, total] = await Promise.all([
-    Blog.findAll({ limit, offset }),
-    Blog.count(),
-  ]);
+  const allBlogs = await getCachedBlogs();
+
+  let filtered = allBlogs;
+  if (search.trim()) {
+    const q = search.toLowerCase();
+    filtered = allBlogs.filter((p: any) =>
+      (p.title || '').toLowerCase().includes(q) ||
+      (p.slug || '').toLowerCase().includes(q) ||
+      (p.excerpt || '').toLowerCase().includes(q) ||
+      (p.author || '').toLowerCase().includes(q) ||
+      (p.categories || '').toLowerCase().includes(q) ||
+      (p.tags || '').toLowerCase().includes(q)
+    );
+  }
+
+  const total = filtered.length;
+  const offset = (page - 1) * limit;
+  const blogs = filtered.slice(offset, offset + limit);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -67,6 +84,21 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
         </p>
       </div>
 
+      <style dangerouslySetInnerHTML={{__html: `
+        .blog-search-input {
+          transition: all 0.3s ease;
+        }
+        .blog-search-input:focus {
+          border-color: var(--primary) !important;
+          box-shadow: 0 0 0 3px rgba(94, 180, 70, 0.15) !important;
+        }
+      `}} />
+
+      {/* Search Bar Component */}
+      <div className="container" style={{ maxWidth: '600px', margin: '0 auto 40px' }}>
+        <BlogSearchBar />
+      </div>
+
       {/* Blog Cards Grid */}
       <div className="container" style={{ maxWidth: '1300px' }}>
         <div 
@@ -85,7 +117,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
               </p>
             </div>
           ) : (
-            blogs.map((post) => {
+            blogs.map((post: any) => {
               const wordCount = post.content ? post.content.replace(/<[^>]*>/g, '').split(/\s+/).length : 0;
               const readTime = `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
               const formattedDate = post.publishedAt
@@ -99,122 +131,127 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
               const category = post.categories ? post.categories.split(',')[0].trim() : 'Gardening';
 
               return (
-                <article 
+                <Link
                   key={post.slug || post.id}
-                  className="product-card"
-                  style={{ 
-                    backgroundColor: 'white', 
-                    borderRadius: 'var(--radius-md)', 
-                    border: '1px solid var(--border)', 
-                    boxShadow: 'var(--shadow-sm)',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    transition: 'var(--transition)'
-                  }}
+                  href={`/blog/${post.slug}`}
+                  style={{ textDecoration: 'none', display: 'flex' }}
                 >
-                  {/* Image Banner */}
-                  <div 
+                  <article 
+                    className="product-card"
                     style={{ 
-                      height: '200px', 
-                      width: '100%', 
-                      overflow: 'hidden', 
-                      position: 'relative',
-                      backgroundColor: '#f1f5f9'
+                      backgroundColor: 'white', 
+                      borderRadius: 'var(--radius-md)', 
+                      border: '1px solid var(--border)', 
+                      boxShadow: 'var(--shadow-sm)',
+                      overflow: 'hidden',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'var(--transition)',
+                      width: '100%'
                     }}
                   >
-                    <img 
-                      src={imageUrl} 
-                      alt={post.title}
+                    {/* Image Banner */}
+                    <div 
                       style={{ 
-                        height: '100%', 
+                        height: '200px', 
                         width: '100%', 
-                        objectFit: 'contain',
-                        transition: 'var(--transition)'
-                      }}
-                      className="product-img"
-                    />
-                    <span 
-                      style={{ 
-                        position: 'absolute', 
-                        top: '12px', 
-                        left: '12px', 
-                        backgroundColor: 'var(--primary)', 
-                        color: 'white', 
-                        fontSize: '11px', 
-                        fontWeight: 600, 
-                        padding: '4px 10px', 
-                        borderRadius: '20px',
-                        textTransform: 'uppercase'
+                        overflow: 'hidden', 
+                        position: 'relative',
+                        backgroundColor: '#f1f5f9'
                       }}
                     >
-                      {category}
-                    </span>
-                  </div>
-
-                  {/* Text Info */}
-                  <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Calendar size={14} /> {formattedDate}
-                      </span>
-                      <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Clock size={14} /> {readTime}
+                      <img 
+                        src={imageUrl} 
+                        alt={post.title}
+                        style={{ 
+                          height: '100%', 
+                          width: '100%', 
+                          objectFit: 'contain',
+                          transition: 'var(--transition)'
+                        }}
+                        className="product-img"
+                      />
+                      <span 
+                        style={{ 
+                          position: 'absolute', 
+                          top: '12px', 
+                          left: '12px', 
+                          backgroundColor: 'var(--primary)', 
+                          color: 'white', 
+                          fontSize: '11px', 
+                          fontWeight: 600, 
+                          padding: '4px 10px', 
+                          borderRadius: '20px',
+                          textTransform: 'uppercase'
+                        }}
+                      >
+                        {category}
                       </span>
                     </div>
 
-                    <h3 
-                      style={{ 
-                        fontSize: '18px', 
-                        fontWeight: 700, 
-                        color: 'var(--dark)', 
-                        lineHeight: 1.4, 
-                        marginBottom: '10px',
-                        height: '50px',
-                        overflow: 'hidden',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        fontFamily: "'Outfit', sans-serif"
-                      }}
-                    >
-                      {post.title}
-                    </h3>
+                    {/* Text Info */}
+                    <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                      <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Calendar size={14} /> {formattedDate}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={14} /> {readTime}
+                        </span>
+                      </div>
 
-                    <p 
-                      style={{ 
-                        fontSize: '14px', 
-                        color: 'var(--text-muted)', 
-                        lineHeight: 1.6, 
-                        marginBottom: '20px',
-                        flexGrow: 1,
-                        overflow: 'hidden',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical'
-                      }}
-                    >
-                      {post.excerpt}
-                    </p>
+                      <h3 
+                        style={{ 
+                          fontSize: '18px', 
+                          fontWeight: 700, 
+                          color: 'var(--dark)', 
+                          lineHeight: 1.4, 
+                          marginBottom: '10px',
+                          height: '50px',
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          fontFamily: "'Outfit', sans-serif"
+                        }}
+                      >
+                        {post.title}
+                      </h3>
 
-                    <Link 
-                      href={`/blog/${post.slug}`}
-                      style={{ 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        gap: '6px', 
-                        fontSize: '14px', 
-                        fontWeight: 600, 
-                        color: 'var(--primary)',
-                        marginTop: 'auto',
-                        transition: 'var(--transition)'
-                      }}
-                      className="read-more-link"
-                    >
-                      Read Full Article <ArrowRight size={16} />
-                    </Link>
-                  </div>
-                </article>
+                      <p 
+                        style={{ 
+                          fontSize: '14px', 
+                          color: 'var(--text-muted)', 
+                          lineHeight: 1.6, 
+                          marginBottom: '20px',
+                          flexGrow: 1,
+                          overflow: 'hidden',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
+                        {post.excerpt}
+                      </p>
+
+                      <div 
+                        style={{ 
+                          display: 'inline-flex', 
+                          alignItems: 'center', 
+                          gap: '6px', 
+                          fontSize: '14px', 
+                          fontWeight: 600, 
+                          color: 'var(--primary)',
+                          marginTop: 'auto',
+                          transition: 'var(--transition)'
+                        }}
+                        className="read-more-link"
+                      >
+                        Read Full Article <ArrowRight size={16} />
+                      </div>
+                    </div>
+                  </article>
+                </Link>
               );
             })
           )}
@@ -234,7 +271,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
             {/* Previous Page Link */}
             {page > 1 ? (
               <Link
-                href={`/blog?page=${page - 1}`}
+                href={search ? `/blog?page=${page - 1}&search=${encodeURIComponent(search)}` : `/blog?page=${page - 1}`}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -279,7 +316,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
               return (
                 <Link
                   key={pageNum}
-                  href={`/blog?page=${pageNum}`}
+                  href={search ? `/blog?page=${pageNum}&search=${encodeURIComponent(search)}` : `/blog?page=${pageNum}`}
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
@@ -304,7 +341,7 @@ export default async function BlogIndexPage({ searchParams }: BlogIndexPageProps
             {/* Next Page Link */}
             {page < totalPages ? (
               <Link
-                href={`/blog?page=${page + 1}`}
+                href={search ? `/blog?page=${page + 1}&search=${encodeURIComponent(search)}` : `/blog?page=${page + 1}`}
                 style={{
                   display: 'inline-flex',
                   alignItems: 'center',

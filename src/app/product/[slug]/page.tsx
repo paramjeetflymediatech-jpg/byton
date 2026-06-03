@@ -54,7 +54,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const slug = resolvedParams.slug;
   
   let product: Product | null = null;
-  let category: Category | null = null;
+  let productCategories: Category[] = [];
 
   try {
     // 1. Fetch product by slug
@@ -63,11 +63,8 @@ export default async function ProductPage({ params }: ProductPageProps) {
     });
 
     if (product) {
-      // 2. Fetch associated category
-      const categories = await (product as any).getCategories();
-      if (categories.length > 0) {
-        category = categories[0];
-      }
+      // 2. Fetch associated categories
+      productCategories = await (product as any).getCategories();
     }
   } catch (error) {
     console.error('Error fetching product detail page:', error);
@@ -79,6 +76,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const isSale = product.salePrice && product.salePrice < product.price;
   const displayPrice = isSale ? product.salePrice! : product.price;
+  const primaryCategory = productCategories[0] || null;
 
   return (
     <div className="container" style={{ paddingTop: '40px' }}>
@@ -86,26 +84,23 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <ProductViewTracker product={{ id: product.id, title: product.title, price: displayPrice }} />
 
       {/* Breadcrumb */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '30px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)', marginBottom: '30px', flexWrap: 'wrap' }}>
         <Link href="/">Home</Link>
         <ChevronRight size={14} />
-        {category ? (
-          <>
-            <Link href={`/shop/${category.slug}`}>{category.name}</Link>
+        <Link href="/shop/all">Shop</Link>
+        {productCategories.map(cat => (
+          <React.Fragment key={cat.id}>
             <ChevronRight size={14} />
-          </>
-        ) : (
-          <>
-            <Link href="/shop/all">Shop</Link>
-            <ChevronRight size={14} />
-          </>
-        )}
+            <Link href={`/shop/${cat.slug}`}>{cat.name}</Link>
+          </React.Fragment>
+        ))}
+        <ChevronRight size={14} />
         <span style={{ color: 'var(--text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '300px' }}>
           {product.title}
         </span>
       </div>
 
-      <Link href={category ? `/shop/${category.slug}` : '/shop/all'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: 'var(--primary)', marginBottom: '24px', fontWeight: 500 }}>
+      <Link href={primaryCategory ? `/shop/${primaryCategory.slug}` : '/shop/all'} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: 'var(--primary)', marginBottom: '24px', fontWeight: 500 }}>
         <ArrowLeft size={16} /> Back to browsing
       </Link>
 
@@ -164,6 +159,41 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <span style={{ fontWeight: 600 }}>APC Overnight</span>
             </div>
           </div>
+
+          {/* Categories Aside Section */}
+          {productCategories.length > 0 && (
+            <aside style={{
+              borderTop: '1px solid var(--border)',
+              paddingTop: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--dark)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                Related Categories
+              </span>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {productCategories.map(cat => (
+                  <Link 
+                    key={cat.id} 
+                    href={`/shop/${cat.slug}`} 
+                    style={{
+                      fontSize: '12px',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      backgroundColor: 'var(--primary-glow)',
+                      color: 'var(--primary)',
+                      fontWeight: 600,
+                      border: '1px solid rgba(94, 180, 70, 0.15)',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {cat.name}
+                  </Link>
+                ))}
+              </div>
+            </aside>
+          )}
         </div>
       </div>
 

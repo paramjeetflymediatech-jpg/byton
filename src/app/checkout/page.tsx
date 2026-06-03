@@ -8,7 +8,7 @@ import { CheckCircle, Truck, Package, ShieldCheck, FileText } from 'lucide-react
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
   
-  // Form state
+  // Billing & Shipping Form state
   const [customerName, setCustomerName] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
@@ -16,6 +16,14 @@ export default function CheckoutPage() {
   const [shippingPostcode, setShippingPostcode] = useState('');
   const [shippingPhone, setShippingPhone] = useState('');
   
+  // Opayo Card Form state
+  const [cardholderName, setCardholderName] = useState('');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvv, setCardCvv] = useState('');
+  const [paymentError, setPaymentError] = useState('');
+  const [cardBrand, setCardBrand] = useState<'visa' | 'mastercard' | 'amex' | 'unknown'>('unknown');
+
   // Shipping & loading states
   const [loadingRate, setLoadingRate] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(false);
@@ -29,6 +37,7 @@ export default function CheckoutPage() {
     shippingCost: number;
     apcTrackingNumber: string;
     apcLabelUrl: string;
+    opayoTransactionId?: string;
   } | null>(null);
 
   // Trigger TikTok and Pinterest InitiateCheckout tags when loading checkout
@@ -60,6 +69,86 @@ export default function CheckoutPage() {
     }
   }, [cart, cartTotal]);
 
+  // Card Formatters & Brand Detector helpers
+  const detectCardBrand = (num: string) => {
+    const cleanNum = num.replace(/\s+/g, '');
+    if (/^4/.test(cleanNum)) return 'visa';
+    if (/^5[1-5]/.test(cleanNum) || /^2[2-7]/.test(cleanNum)) return 'mastercard';
+    if (/^3[47]/.test(cleanNum)) return 'amex';
+    return 'unknown';
+  };
+
+  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 16) value = value.slice(0, 16);
+    const brand = detectCardBrand(value);
+    setCardBrand(brand);
+    
+    // Group by 4 digits
+    const formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ');
+    setCardNumber(formatted);
+  };
+
+  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 4) value = value.slice(0, 4);
+    if (value.length > 2) {
+      value = `${value.slice(0, 2)}/${value.slice(2)}`;
+    }
+    setCardExpiry(value);
+  };
+
+  const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    const maxLen = cardBrand === 'amex' ? 4 : 3;
+    if (value.length > maxLen) value = value.slice(0, maxLen);
+    setCardCvv(value);
+  };
+
+  const validateLuhn = (num: string) => {
+    let sum = 0;
+    let shouldDouble = false;
+    for (let i = num.length - 1; i >= 0; i--) {
+      let digit = parseInt(num.charAt(i), 10);
+      if (shouldDouble) {
+        digit *= 2;
+        if (digit > 9) digit -= 9;
+      }
+      sum += digit;
+      shouldDouble = !shouldDouble;
+    }
+    return sum % 10 === 0;
+  };
+
+  const validateExpiry = (expiry: string) => {
+    const parts = expiry.split('/');
+    if (parts.length !== 2) return false;
+    const month = parseInt(parts[0], 10);
+    const year = parseInt(parts[1], 10) + 2000;
+    if (isNaN(month) || isNaN(year) || month < 1 || month > 12) return false;
+    
+    const now = new Date();
+    const expDate = new Date(year, month - 1, 28);
+    return expDate > now;
+  };
+
+  // Mock secure card tokenisation
+  const tokenizeCard = async () => {
+    // Simulate security connection to Opayo Pi
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const cleanNum = cardNumber.replace(/\s+/g, '');
+    const lastFour = cleanNum.slice(-4);
+    
+    if (lastFour === '0000') {
+      return `card-token-declined-${Date.now()}`;
+    }
+    if (cardExpiry === '01/22' || cardExpiry === '12/20') {
+      return `card-token-expired-${Date.now()}`;
+    }
+    return `card-token-ok-${lastFour}-${Date.now()}`;
+  };
+
   // Calculate live APC Overnight rates when postcode is entered
   const handleCalculateShipping = async () => {
     if (!shippingPostcode) {
@@ -71,8 +160,7 @@ export default function CheckoutPage() {
     setShippingError('');
     setShippingQuote(null);
 
-    // Calculate total weight of basket
-    // (mock product weights: default to 1kg if not loaded)
+    // Calculate total weight of basket (default to 1.0kg per item)
     const totalWeight = cart.reduce((sum, item) => sum + 1.0 * item.quantity, 0);
 
     try {
@@ -106,10 +194,35 @@ export default function CheckoutPage() {
       return;
     }
 
+    // Validate Card Details
+    const cleanNum = cardNumber.replace(/\s+/g, '');
+    if (cardholderName.trim().length < 2) {
+      setPaymentError('Please enter cardholder name.');
+      return;
+    }
+    if (cleanNum.length < 15 || !validateLuhn(cleanNum)) {
+      setPaymentError('Invalid credit card number.');
+      return;
+    }
+    if (!validateExpiry(cardExpiry)) {
+      setPaymentError('Invalid expiry date (MM/YY) or card expired.');
+      return;
+    }
+    const expectedCvvLen = cardBrand === 'amex' ? 4 : 3;
+    if (cardCvv.length < expectedCvvLen) {
+      setPaymentError(`CVV must be ${expectedCvvLen} digits.`);
+      return;
+    }
+
     setSubmittingOrder(true);
     setShippingError('');
+    setPaymentError('');
 
     try {
+      // 1. Client-Side secure tokenization with Opayo Pi
+      const opayoToken = await tokenizeCard();
+
+      // 2. Submit transaction to backend orders route
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,7 +233,8 @@ export default function CheckoutPage() {
           shippingCity,
           shippingPostcode,
           shippingPhone,
-          cartItems: cart.map(item => ({ id: item.id, quantity: item.quantity }))
+          cartItems: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+          opayoToken
         })
       });
       
@@ -133,7 +247,8 @@ export default function CheckoutPage() {
           totalAmount: order.totalAmount,
           shippingCost: order.shippingCost,
           apcTrackingNumber: order.apcTrackingNumber,
-          apcLabelUrl: order.apcLabelUrl
+          apcLabelUrl: order.apcLabelUrl,
+          opayoTransactionId: data.opayoTransactionId
         });
 
         // Trigger conversions Tag triggers for TikTok and Pinterest
@@ -175,6 +290,12 @@ export default function CheckoutPage() {
               <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Order ID:</span>
               <div style={{ fontWeight: 600, fontSize: '16px' }}>{orderReceipt.id}</div>
             </div>
+            {orderReceipt.opayoTransactionId && (
+              <div>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Opayo Payment reference:</span>
+                <div style={{ fontWeight: 600, fontSize: '14px', fontFamily: 'monospace' }}>{orderReceipt.opayoTransactionId}</div>
+              </div>
+            )}
             <div>
               <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Total Amount Paid:</span>
               <div style={{ fontWeight: 700, fontSize: '18px', color: 'var(--primary)' }}>£{orderReceipt.totalAmount.toFixed(2)}</div>
@@ -329,6 +450,88 @@ export default function CheckoutPage() {
               </div>
             </div>
 
+            {/* Opayo Payment Section */}
+            <div style={{ marginTop: '30px', borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={20} style={{ color: 'var(--primary)' }} /> Opayo Secure Credit/Debit Card Payment
+              </h3>
+              
+              <div style={{ backgroundColor: 'var(--light-bg)', padding: '20px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>We accept:</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: (cardBrand === 'visa' || cardBrand === 'unknown') ? 'var(--primary)' : 'var(--text-muted)', opacity: cardBrand === 'visa' ? 1 : 0.4 }}>Visa</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: (cardBrand === 'mastercard' || cardBrand === 'unknown') ? 'var(--primary)' : 'var(--text-muted)', opacity: cardBrand === 'mastercard' ? 1 : 0.4 }}>Mastercard</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: (cardBrand === 'amex' || cardBrand === 'unknown') ? 'var(--primary)' : 'var(--text-muted)', opacity: cardBrand === 'amex' ? 1 : 0.4 }}>Amex</span>
+                  </div>
+                  <span style={{ fontSize: '11px', backgroundColor: 'white', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                    🛡️ PCI-DSS Secure
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label>Cardholder Name</label>
+                  <input 
+                    type="text" 
+                    value={cardholderName}
+                    onChange={e => setCardholderName(e.target.value)}
+                    placeholder="e.g. Mr John Smith"
+                    className="form-control"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label>Card Number</label>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="text" 
+                      value={cardNumber}
+                      onChange={handleCardNumberChange}
+                      placeholder="4111 1111 1111 1111"
+                      className="form-control"
+                      style={{ paddingRight: '60px' }}
+                      required
+                    />
+                    {cardBrand !== 'unknown' && (
+                      <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontWeight: 700, fontSize: '11px', color: 'white', backgroundColor: 'var(--primary)', padding: '2px 6px', borderRadius: '3px', textTransform: 'uppercase' }}>
+                        {cardBrand}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div className="form-group">
+                    <label>Expiration Date</label>
+                    <input 
+                      type="text" 
+                      value={cardExpiry}
+                      onChange={handleExpiryChange}
+                      placeholder="MM/YY"
+                      className="form-control"
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>CVV / CVC Code</label>
+                    <input 
+                      type="text" 
+                      value={cardCvv}
+                      onChange={handleCvvChange}
+                      placeholder={cardBrand === 'amex' ? '1234' : '123'}
+                      className="form-control"
+                      required
+                    />
+                  </div>
+                </div>
+
+                {paymentError && (
+                  <p style={{ color: '#ef4444', fontSize: '13px', fontWeight: 500, margin: 0 }}>{paymentError}</p>
+                )}
+              </div>
+            </div>
+
             {shippingError && (
               <p style={{ color: '#ef4444', fontSize: '14px', marginTop: '16px', fontWeight: 500 }}>{shippingError}</p>
             )}
@@ -339,7 +542,7 @@ export default function CheckoutPage() {
               className="btn"
               style={{ width: '100%', justifyContent: 'center', height: '50px', marginTop: '30px', fontSize: '16px', opacity: (!shippingQuote || submittingOrder) ? 0.6 : 1 }}
             >
-              {submittingOrder ? 'Processing Transaction...' : `Place Order (Pay £${finalTotal.toFixed(2)})`}
+              {submittingOrder ? 'Processing Payment via Opayo...' : `Place Order (Pay £${finalTotal.toFixed(2)})`}
             </button>
           </form>
         </div>

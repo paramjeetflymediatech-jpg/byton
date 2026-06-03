@@ -20,11 +20,13 @@ export default function ProductsPage() {
     stock: '',
     stockStatus: 'instock',
     weight: '',
-    image: ''
+    image: '',
+    categoryIds: [] as number[]
   });
   const [message, setMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -86,13 +88,18 @@ export default function ProductsPage() {
     };
   }, [showModal]);
 
-  const fetchProducts = async () => {
+  const [total, setTotal] = useState(0);
+
+  const fetchProducts = async (pageVal?: number, searchVal?: string) => {
+    const pageNum = typeof pageVal === 'number' ? pageVal : currentPage;
+    const searchStr = typeof searchVal === 'string' ? searchVal : search;
     setLoading(true);
     try {
-      const res = await fetch('/api/admin/products');
+      const res = await fetch(`/api/admin/products?page=${pageNum}&limit=${itemsPerPage}&search=${encodeURIComponent(searchStr)}`);
       const data = await res.json();
       if (res.ok) {
         setProducts(data.products || []);
+        setTotal(data.total || 0);
       }
     } catch (e) {
       console.error(e);
@@ -101,9 +108,43 @@ export default function ProductsPage() {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch('/api/admin/categories');
+      const data = await res.json();
+      if (res.ok) {
+        setCategories(data.categories || []);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Fetch when page changes
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    fetchProducts(currentPage, search);
+    fetchCategories();
+  }, [currentPage]);
+
+  // Handle search query changes with a 400ms debounce
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setCurrentPage(1);
+      fetchProducts(1, search);
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
+
+  const handleCategoryToggle = (categoryId: number) => {
+    setForm(prev => {
+      const isSelected = prev.categoryIds.includes(categoryId);
+      const updatedIds = isSelected
+        ? prev.categoryIds.filter(id => id !== categoryId)
+        : [...prev.categoryIds, categoryId];
+      return { ...prev, categoryIds: updatedIds };
+    });
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -133,7 +174,8 @@ export default function ProductsPage() {
       stock: '10',
       stockStatus: 'instock',
       weight: '1',
-      image: ''
+      image: '',
+      categoryIds: []
     });
     setIsEditing(false);
     setMessage('');
@@ -154,7 +196,8 @@ export default function ProductsPage() {
       stock: String(prod.stock || '0'),
       stockStatus: prod.stockStatus || 'instock',
       weight: String(prod.weight || '0'),
-      image: prod.image || ''
+      image: prod.image || '',
+      categoryIds: prod.categoryIds || []
     });
     setIsEditing(true);
     setMessage('');
@@ -247,23 +290,18 @@ export default function ProductsPage() {
     }
   };
 
-  const filteredProducts = products.filter(p =>
-    (p.title || '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.sku || '').toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Compute pagination
+  // Compute pagination (done on backend, results available in total)
+  const totalPages = Math.ceil(total / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredProducts.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
+  const indexOfFirstItem = (currentPage - 1) * itemsPerPage;
+  const currentItems = products;
 
   // If page out of bounds due to deletes, go back
   useEffect(() => {
-    if (currentPage > 1 && currentItems.length === 0 && filteredProducts.length > 0) {
+    if (currentPage > 1 && currentItems.length === 0 && total > 0) {
       setCurrentPage(totalPages);
     }
-  }, [filteredProducts.length, currentItems.length, currentPage, totalPages]);
+  }, [total, currentItems.length, currentPage, totalPages]);
 
   return (
     <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
@@ -273,7 +311,7 @@ export default function ProductsPage() {
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px' }}>Create, update, and manage your inventory details.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
-          <button onClick={fetchProducts} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px' }}>
+          <button onClick={() => fetchProducts(currentPage, search)} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px' }}>
             <RefreshCw size={16} /> Refresh
           </button>
           <button onClick={handleOpenAdd} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '10px 16px' }}>
@@ -297,7 +335,7 @@ export default function ProductsPage() {
 
       {loading ? (
         <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)' }}>Loading products...</div>
-      ) : filteredProducts.length === 0 ? (
+      ) : total === 0 ? (
         <div style={{ padding: '60px 0', textAlign: 'center', border: '1px dashed var(--border)', borderRadius: '12px', color: 'var(--text-muted)' }}>
           {search ? 'No products matches your search query.' : 'No products found. Click "Add Product" to create one.'}
         </div>
@@ -384,7 +422,7 @@ export default function ProductsPage() {
           {totalPages > 1 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '20px', paddingTop: '20px', borderTop: '1px solid var(--border)' }}>
               <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredProducts.length)} of {filteredProducts.length} entries
+                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, total)} of {total} entries
               </span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -428,7 +466,7 @@ export default function ProductsPage() {
             backgroundColor: 'white',
             borderRadius: '16px',
             width: '100%',
-            maxWidth: '750px',
+            maxWidth: '1000px',
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
             overflow: 'hidden'
           }}>
@@ -442,179 +480,245 @@ export default function ProductsPage() {
             </div>
 
             <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', maxHeight: '75vh', overflowY: 'auto' }}>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Product Title</label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={form.title}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. Lavender Herb Pot"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Slug</label>
-                  <input
-                    type="text"
-                    name="slug"
-                    value={form.slug}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. lavender-herb-pot"
-                    required
-                  />
-                </div>
-              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '7fr 3fr', gap: '24px' }}>
+                {/* Left Form Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Product Title</label>
+                      <input
+                        type="text"
+                        name="title"
+                        value={form.title}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. Lavender Herb Pot"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Slug</label>
+                      <input
+                        type="text"
+                        name="slug"
+                        value={form.slug}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. lavender-herb-pot"
+                        required
+                      />
+                    </div>
+                  </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>SKU</label>
-                  <input
-                    type="text"
-                    name="sku"
-                    value={form.sku}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. LAV-POT-1"
-                  />
-                </div>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="weight"
-                    value={form.weight}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. 1.5"
-                  />
-                </div>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Image URL</label>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <input
-                      type="text"
-                      name="image"
-                      value={form.image}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>SKU</label>
+                      <input
+                        type="text"
+                        name="sku"
+                        value={form.sku}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. LAV-POT-1"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Weight (kg)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="weight"
+                        value={form.weight}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. 1.5"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Image URL</label>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <input
+                          type="text"
+                          name="image"
+                          value={form.image}
+                          onChange={handleChange}
+                          className="form-control"
+                          placeholder="Image link or upload"
+                          style={{ flexGrow: 1 }}
+                        />
+                        <label className="btn btn-secondary" style={{ padding: '0 12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', whiteSpace: 'nowrap', height: '42px', gap: '4px' }}>
+                          <Upload size={14} />
+                          <span>Upload</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleImageUpload(e, 'image')}
+                            style={{ display: 'none' }}
+                            disabled={uploading}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Current Price (£)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="price"
+                        value={form.price}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. 19.99"
+                        required
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Regular Price (£)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="regularPrice"
+                        value={form.regularPrice}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. 24.99"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Sale Price (£ - Optional)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        name="salePrice"
+                        value={form.salePrice}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. 19.99"
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Stock Qty</label>
+                      <input
+                        type="number"
+                        name="stock"
+                        value={form.stock}
+                        onChange={handleChange}
+                        className="form-control"
+                        placeholder="e.g. 15"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Stock Status</label>
+                      <select
+                        name="stockStatus"
+                        value={form.stockStatus}
+                        onChange={handleChange}
+                        className="form-control"
+                        style={{ height: '42px' }}
+                      >
+                        <option value="instock">In Stock</option>
+                        <option value="outofstock">Out of Stock</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Short Excerpt</label>
+                    <textarea
+                      name="excerpt"
+                      value={form.excerpt}
                       onChange={handleChange}
                       className="form-control"
-                      placeholder="Image link or upload"
-                      style={{ flexGrow: 1 }}
+                      placeholder="Summarize the product in 1-2 lines..."
+                      rows={2}
+                      style={{ resize: 'vertical' }}
                     />
-                    <label className="btn btn-secondary" style={{ padding: '0 12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', whiteSpace: 'nowrap', height: '42px', gap: '4px' }}>
-                      <Upload size={14} />
-                      <span>Upload</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleImageUpload(e, 'image')}
+                  </div>
+
+                  {/* Description using CKEditor */}
+                  <div className="form-group">
+                    <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Full Description (Rich Text Editor)</label>
+                    <div style={{ color: 'black' }}>
+                      <textarea
+                        ref={editorRef}
+                        name="description"
+                        value={form.description}
+                        onChange={handleChange}
+                        placeholder="Detailed product descriptions..."
                         style={{ display: 'none' }}
-                        disabled={uploading}
                       />
-                    </label>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Current Price (£)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="price"
-                    value={form.price}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. 19.99"
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Regular Price (£)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="regularPrice"
-                    value={form.regularPrice}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. 24.99"
-                  />
-                </div>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Sale Price (£ - Optional)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    name="salePrice"
-                    value={form.salePrice}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. 19.99"
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Stock Qty</label>
-                  <input
-                    type="number"
-                    name="stock"
-                    value={form.stock}
-                    onChange={handleChange}
-                    className="form-control"
-                    placeholder="e.g. 15"
-                  />
-                </div>
-                <div className="form-group">
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Stock Status</label>
-                  <select
-                    name="stockStatus"
-                    value={form.stockStatus}
-                    onChange={handleChange}
-                    className="form-control"
-                    style={{ height: '42px' }}
-                  >
-                    <option value="instock">In Stock</option>
-                    <option value="outofstock">Out of Stock</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Short Excerpt</label>
-                <textarea
-                  name="excerpt"
-                  value={form.excerpt}
-                  onChange={handleChange}
-                  className="form-control"
-                  placeholder="Summarize the product in 1-2 lines..."
-                  rows={2}
-                  style={{ resize: 'vertical' }}
-                />
-              </div>
-
-              {/* Description using CKEditor */}
-              <div className="form-group">
-                <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Full Description (Rich Text Editor)</label>
-                {/* CKEditor styles will apply to this container */}
-                <div style={{ color: 'black' }}>
-                  <textarea
-                    ref={editorRef}
-                    name="description"
-                    value={form.description}
-                    onChange={handleChange}
-                    placeholder="Detailed product descriptions..."
-                    style={{ display: 'none' }}
-                  />
-                </div>
+                {/* Right Sidebar Column (aside) for categories */}
+                <aside style={{
+                  backgroundColor: '#f8fafc',
+                  padding: '20px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--border)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '16px',
+                  height: 'fit-content'
+                }}>
+                  <h4 style={{
+                    fontSize: '15px',
+                    fontWeight: 700,
+                    color: 'var(--dark)',
+                    borderBottom: '1px solid var(--border)',
+                    paddingBottom: '8px',
+                    margin: 0
+                  }}>
+                    Product Categories
+                  </h4>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                    maxHeight: '380px',
+                    overflowY: 'auto',
+                    paddingRight: '6px'
+                  }}>
+                    {categories.length === 0 ? (
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>No categories created yet.</div>
+                    ) : (
+                      categories.map((cat: any) => (
+                        <label
+                          key={cat.id}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            fontSize: '14px',
+                            cursor: 'pointer',
+                            userSelect: 'none',
+                            color: 'var(--text)'
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.categoryIds.includes(cat.id)}
+                            onChange={() => handleCategoryToggle(cat.id)}
+                            style={{
+                              accentColor: 'var(--primary)',
+                              width: '16px',
+                              height: '16px',
+                              cursor: 'pointer'
+                            }}
+                          />
+                          <span>{cat.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </aside>
               </div>
 
               {message && (

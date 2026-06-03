@@ -94,7 +94,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
           }}
           className="back-btn"
         >
-          <ArrowLeft size={16} /> Back to Hub
+          <ArrowLeft size={16} /> Back to Blogs
         </Link>
 
         {/* Responsive grid styles to keep left side wider and right side narrower on desktop */}

@@ -110,10 +110,12 @@ export default function BlogPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showModal, ckReady]);
 
-  const fetchPosts = useCallback(async (page = currentPage) => {
+  const fetchPosts = useCallback(async (pageVal?: number, searchVal?: string) => {
+    const pageNum = typeof pageVal === 'number' ? pageVal : currentPage;
+    const searchStr = typeof searchVal === 'string' ? searchVal : search;
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/blogs?page=${page}&limit=${limit}`);
+      const res = await fetch(`/api/admin/blogs?page=${pageNum}&limit=${limit}&search=${encodeURIComponent(searchStr)}`);
       const data = await res.json();
       if (res.ok) {
         setPosts(data.blogs || []);
@@ -124,18 +126,24 @@ export default function BlogPage() {
     } finally {
       setLoading(false);
     }
+  }, [currentPage, search]);
+
+  // Fetch on page change
+  useEffect(() => {
+    fetchPosts(currentPage, search);
   }, [currentPage]);
 
-  useEffect(() => { fetchPosts(currentPage); }, [currentPage]);
+  // Handle search with debounce
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      setCurrentPage(1);
+      fetchPosts(1, search);
+    }, 400);
 
-  const filtered = search
-    ? posts.filter(p =>
-        p.title.toLowerCase().includes(search.toLowerCase()) ||
-        p.tags.toLowerCase().includes(search.toLowerCase()) ||
-        p.categories.toLowerCase().includes(search.toLowerCase()) ||
-        p.author.toLowerCase().includes(search.toLowerCase())
-      )
-    : posts;
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
+
+  const filtered = posts;
 
   const totalPages = Math.ceil(total / limit);
 
