@@ -26,6 +26,7 @@ import ProductsPage from './products/page';
 import CategoriesPage from './categories/page';
 import UsersPage from './users/page';
 import BlogPage from './blog/page';
+import OrdersPage from './orders/page';
 import { useSession, signIn, signOut } from 'next-auth/react';
 
 // Session guard – ensure only authenticated admin can view
@@ -51,12 +52,7 @@ export default function AdminPage() {
 function AdminDashboard() {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<'orders' | 'settings' | 'seo' | 'products' | 'categories' | 'users' | 'blog'>('orders');
-  const [orders, setOrders] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
-
-  // Pagination state for orders
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
   
   // Loading & Action states
   const [loading, setLoading] = useState(true);
@@ -68,19 +64,41 @@ function AdminDashboard() {
     fetchAdminData();
   }, []);
 
-  const fetchAdminData = async () => {
-    setLoading(true);
+  const [syncingApc, setSyncingApc] = useState(false);
+
+  const fetchAdminData = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const res = await fetch('/api/admin');
       const data = await res.json();
       if (res.ok) {
-        setOrders(data.orders || []);
         setSettings(data.settings || {});
       }
     } catch (e) {
       console.error('Error fetching admin data:', e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+    }
+  };
+
+  // Fetch APC credentials from WordPress custom endpoint
+  const handleSyncAPCCredentials = async () => {
+    setSyncingApc(true);
+    setSaveMessage('');
+    try {
+      const res = await fetch('/api/admin/sync/apc-credentials', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSaveMessage(data.message || 'APC credentials successfully synced from WordPress.');
+        // Refresh settings silently so they load into the input fields
+        await fetchAdminData(true);
+      } else {
+        setSaveMessage(data.error || 'Failed to sync APC credentials.');
+      }
+    } catch (err) {
+      setSaveMessage('Network error during APC credentials sync.');
+    } finally {
+      setSyncingApc(false);
     }
   };
 
@@ -112,11 +130,6 @@ function AdminDashboard() {
   const updateSettingField = (key: string, value: string) => {
     setSettings((prev: any) => ({ ...prev, [key]: value }));
   };
-
-  // Compute metrics
-  const totalSales = orders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-  const uniqueCustomers = new Set(orders.map(o => o.customerEmail)).size;
-  const bookedOrders = orders.filter(o => o.apcTrackingNumber).length;
 
   if (loading) {
     return (
@@ -333,7 +346,7 @@ function AdminDashboard() {
               className={`menu-item-btn ${activeTab === 'orders' ? 'active' : ''}`}
             >
               <LayoutDashboard size={20} />
-              <span>Orders &amp; Overview</span>
+              <span>Orders</span>
             </button>
           </li>
           
@@ -414,7 +427,7 @@ function AdminDashboard() {
             <span>Portal</span>
             <ChevronRight size={14} />
             <span style={{ color: 'var(--dark)', fontWeight: 600, textTransform: 'capitalize' }}>
-              {activeTab === 'orders' ? 'Overview' : activeTab}
+              {activeTab === 'orders' ? 'Orders' : activeTab}
             </span>
           </div>
           
@@ -432,169 +445,65 @@ function AdminDashboard() {
         <div className="admin-body">
           
           {/* Orders / Overview Tab */}
-          {activeTab === 'orders' && (
-            <div>
-              {/* Analytics Metric Cards Grid */}
-              <div className="metric-grid">
-                {/* Metric 1 */}
-                <div className="metric-card">
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Total Sales</div>
-                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--dark)' }}>£{totalSales.toFixed(2)}</div>
-                  </div>
-                  <div className="metric-icon-box">
-                    <DollarSign size={24} />
-                  </div>
-                </div>
-
-                {/* Metric 2 */}
-                <div className="metric-card">
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Total Orders</div>
-                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--dark)' }}>{orders.length}</div>
-                  </div>
-                  <div className="metric-icon-box">
-                    <ShoppingBag size={24} />
-                  </div>
-                </div>
-
-                {/* Metric 3 */}
-                <div className="metric-card">
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>Unique Customers</div>
-                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--dark)' }}>{uniqueCustomers}</div>
-                  </div>
-                  <div className="metric-icon-box">
-                    <UserCheck size={24} />
-                  </div>
-                </div>
-
-                {/* Metric 4 */}
-                <div className="metric-card">
-                  <div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>APC Bookings</div>
-                    <div style={{ fontSize: '24px', fontWeight: 800, color: 'var(--dark)' }}>{bookedOrders} / {orders.length}</div>
-                  </div>
-                  <div className="metric-icon-box">
-                    <Truck size={24} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Orders Table Container */}
-              <div className="admin-table-card">
-                <div className="admin-table-header">
-                  <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--dark)' }}>Recent Customer Purchases</h2>
-                  <button onClick={fetchAdminData} className="btn btn-secondary" style={{ padding: '8px 14px', fontSize: '13px', display: 'flex', gap: '6px' }}>
-                    <RefreshCw size={14} /> Refresh List
-                  </button>
-                </div>
-                
-                {orders.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '60px 0' }}>No orders found in the system yet.</p>
-                ) : (
-                  <>
-                    <div className="table-responsive">
-                      <table className="admin-table" style={{ margin: 0 }}>
-                        <thead>
-                          <tr>
-                            <th>Order ID</th>
-                            <th>Customer Details</th>
-                            <th>Destination</th>
-                            <th>APC Courier Booking</th>
-                            <th>Label PDF</th>
-                            <th>Amount Paid</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {orders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((o) => (
-                            <tr key={o.id}>
-                              <td style={{ fontWeight: 600, fontSize: '14px' }}>#{o.id.substring(0, 8)}...</td>
-                              <td>
-                                <div style={{ fontWeight: 600, color: 'var(--dark)' }}>{o.customerName}</div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{o.customerEmail}</div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{o.shippingPhone}</div>
-                              </td>
-                              <td>
-                                <div style={{ fontSize: '13px', color: 'var(--dark)' }}>{o.shippingCity}</div>
-                                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{o.shippingPostcode}</div>
-                              </td>
-                              <td>
-                                {o.apcTrackingNumber ? (
-                                  <span className="badge-status badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                    <Truck size={12} /> {o.apcTrackingNumber}
-                                  </span>
-                                ) : (
-                                  <span className="badge-status badge-pending">Unbooked</span>
-                                )}
-                              </td>
-                              <td>
-                                {o.apcLabelUrl ? (
-                                  <button 
-                                    onClick={() => alert(`Printing consignment label PDF for Order: ${o.id}`)}
-                                    className="btn btn-secondary" 
-                                    style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', gap: '4px', borderRadius: '6px' }}
-                                  >
-                                    <FileText size={12} /> Print PDF
-                                  </button>
-                                ) : (
-                                  <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>N/A</span>
-                                )}
-                              </td>
-                              <td style={{ fontWeight: 700, color: 'var(--primary)' }}>£{o.totalAmount.toFixed(2)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {/* Orders Pagination Controls */}
-                    {Math.ceil(orders.length / itemsPerPage) > 1 && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderTop: '1px solid var(--border)' }}>
-                        <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-                          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, orders.length)} of {orders.length} entries
-                        </span>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPage === 1}
-                            className="btn btn-secondary"
-                            style={{ padding: '8px 16px', fontSize: '13px' }}
-                          >
-                            Previous
-                          </button>
-                          <button
-                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(orders.length / itemsPerPage)))}
-                            disabled={currentPage === Math.ceil(orders.length / itemsPerPage)}
-                            className="btn btn-secondary"
-                            style={{ padding: '8px 16px', fontSize: '13px' }}
-                          >
-                            Next
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            </div>
-          )}
+          {activeTab === 'orders' && <OrdersPage />}
 
           {/* Settings / Integrations Tab */}
           {activeTab === 'settings' && (
             <form onSubmit={handleSaveSettings} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
               {/* Shipping Rates Box */}
               <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px', borderBottom: '2px solid var(--primary-glow)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--dark)' }}>
-                  <Truck size={18} style={{ color: 'var(--primary)' }} /> APC Overnight Courier Rates
+                <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px', borderBottom: '2px solid var(--primary-glow)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--dark)', width: '100%' }}>
+                  <Truck size={18} style={{ color: 'var(--primary)' }} /> 
+                  <span>APC Overnight Courier Rates</span>
+                  <button
+                    type="button"
+                    onClick={handleSyncAPCCredentials}
+                    disabled={syncingApc}
+                    className="btn btn-secondary"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      borderColor: '#7c3aed',
+                      color: '#7c3aed',
+                      backgroundColor: '#f5f3ff',
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: syncingApc ? 'not-allowed' : 'pointer',
+                      marginLeft: 'auto',
+                      border: '1px solid #ddd',
+                    }}
+                    title="Fetch APC username, password and account number from WordPress and save to settings"
+                  >
+                    {syncingApc ? (
+                      <><RefreshCw size={12} style={{ animation: 'spin 1s linear infinite' }} /> Syncing...</>
+                    ) : (
+                      <><RefreshCw size={12} /> Sync from WordPress</>
+                    )}
+                  </button>
                 </h2>
 
                 <div className="form-group" style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>APC API Endpoint Key</label>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>APC Username</label>
+                  <input 
+                    type="text" 
+                    value={settings['apc_username'] || ''} 
+                    onChange={e => updateSettingField('apc_username', e.target.value)}
+                    className="form-control" 
+                    placeholder="e.g. your-email@example.com"
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>APC Password</label>
                   <input 
                     type="password" 
-                    value={settings['apc_api_key'] || ''} 
-                    onChange={e => updateSettingField('apc_api_key', e.target.value)}
+                    value={settings['apc_password'] || ''} 
+                    onChange={e => updateSettingField('apc_password', e.target.value)}
                     className="form-control" 
+                    placeholder="Enter your APC password"
                   />
                 </div>
                 
@@ -605,6 +514,7 @@ function AdminDashboard() {
                     value={settings['apc_account_number'] || ''} 
                     onChange={e => updateSettingField('apc_account_number', e.target.value)}
                     className="form-control" 
+                    placeholder="e.g. 123456"
                   />
                 </div>
 
@@ -629,6 +539,35 @@ function AdminDashboard() {
                       className="form-control" 
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Opayo Payment Gateway Box */}
+              <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)', marginTop: '24px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '20px', borderBottom: '2px solid var(--primary-glow)', paddingBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--dark)' }}>
+                  <ShieldCheck size={18} style={{ color: 'var(--primary)' }} /> Opayo Payment Gateway (SagePay)
+                </h2>
+
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Opayo Vendor Name</label>
+                  <input 
+                    type="text" 
+                    value={settings['opayo_vendor_name'] || ''} 
+                    onChange={e => updateSettingField('opayo_vendor_name', e.target.value)}
+                    className="form-control" 
+                    placeholder="e.g. baytonhorticulture"
+                  />
+                </div>
+
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600 }}>Opayo Integration Key</label>
+                  <input 
+                    type="password" 
+                    value={settings['opayo_integration_key'] || ''} 
+                    onChange={e => updateSettingField('opayo_integration_key', e.target.value)}
+                    className="form-control" 
+                    placeholder="Enter Opayo integration password or key"
+                  />
                 </div>
               </div>
 

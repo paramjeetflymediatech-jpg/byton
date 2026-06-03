@@ -62,10 +62,15 @@ export class APCService {
     phone: string;
     totalWeightKg: number;
   }): Promise<APCBookingResult> {
-    const apiKeySetting = await Setting.findByPk('apc_api_key');
-    const apiKey = apiKeySetting ? apiKeySetting.value : 'NO_KEY_SET';
+    const usernameSetting = await Setting.findByPk('apc_username');
+    const passwordSetting = await Setting.findByPk('apc_password');
+    const accountNumberSetting = await Setting.findByPk('apc_account_number');
 
-    console.log(`[APC SHIPPING] Connecting to APC API with key: ${apiKey.substring(0, 5)}...`);
+    const username = usernameSetting ? usernameSetting.value : 'NO_USERNAME_SET';
+    const password = passwordSetting ? passwordSetting.value : 'NO_PASSWORD_SET';
+    const accountNumber = accountNumberSetting ? accountNumberSetting.value : 'NO_ACCOUNT_SET';
+
+    console.log(`[APC SHIPPING] Connecting to APC API with username: ${username}, Account: ${accountNumber}`);
     console.log(`[APC SHIPPING] Booking order: ${orderDetails.orderId} (Weight: ${orderDetails.totalWeightKg}kg)`);
 
     // Simulated network response delay

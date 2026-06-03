@@ -587,8 +587,11 @@ export class Order {
   totalAmount!: number;
   shippingCost!: number;
   status!: string;
+  channel?: string;          // 'website' | 'ebay' | 'tiktok'
   apcTrackingNumber?: string;
   apcLabelUrl?: string;
+  createdAt?: string;
+  items?: OrderItem[];
 
   constructor(data: Partial<Order>) {
     Object.assign(this, data);
@@ -598,41 +601,90 @@ export class Order {
   static fromRow(row: any): Order {
     return new Order({
       id: row.id,
-      customerName: row.customer_name ?? row.customerName,
-      customerEmail: row.customer_email ?? row.customerEmail,
-      shippingAddress: row.shipping_address ?? row.shippingAddress,
-      shippingCity: row.shipping_city ?? row.shippingCity,
+      customerName:     row.customer_name     ?? row.customerName,
+      customerEmail:    row.customer_email    ?? row.customerEmail,
+      shippingAddress:  row.shipping_address  ?? row.shippingAddress,
+      shippingCity:     row.shipping_city     ?? row.shippingCity,
       shippingPostcode: row.shipping_postcode ?? row.shippingPostcode,
-      shippingPhone: row.shipping_phone ?? row.shippingPhone,
-      totalAmount: row.total_amount ?? row.totalAmount,
-      shippingCost: row.shipping_cost ?? row.shippingCost,
-      status: row.status,
+      shippingPhone:    row.shipping_phone    ?? row.shippingPhone,
+      totalAmount:  row.total_amount  ? Number(row.total_amount)  : (row.totalAmount  ? Number(row.totalAmount)  : 0),
+      shippingCost: row.shipping_cost ? Number(row.shipping_cost) : (row.shippingCost ? Number(row.shippingCost) : 0),
+      status:  row.status,
+      channel: row.channel ?? null,
       apcTrackingNumber: row.apc_tracking_number ?? row.apcTrackingNumber,
-      apcLabelUrl: row.apc_label_url ?? row.apcLabelUrl,
+      apcLabelUrl:       row.apc_label_url       ?? row.apcLabelUrl,
+      createdAt: row.created_at ?? row.createdAt,
+      items: row.order_items ? row.order_items.map((oi: any) => new OrderItem({
+        id:           oi.id,
+        orderId:      oi.order_id      ?? oi.orderId,
+        productId:    oi.product_id    ?? oi.productId,
+        productTitle: oi.product_title ?? oi.productTitle,
+        quantity:     oi.quantity,
+        price:        oi.price ? Number(oi.price) : 0
+      })) : []
     });
   }
 
+  static async findById(id: string) {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return Order.fromRow(data);
+  }
+
   static async findAll(_options?: any) {
-    // Simple stub: fetch all orders. Options (include, order) are ignored for now.
-    const { data, error } = await supabase.from('orders').select('*');
+    const { data, error } = await supabase
+      .from('orders')
+      .select('*, order_items(*)')
+      .order('created_at', { ascending: false });
     if (error) throw error;
     return (data || []).map((item: any) => Order.fromRow(item));
   }
 
+  static async update(id: string, payload: any) {
+    const dbPayload: any = {};
+    if (payload.customerName     !== undefined) dbPayload.customer_name     = payload.customerName;
+    if (payload.customerEmail    !== undefined) dbPayload.customer_email    = payload.customerEmail;
+    if (payload.shippingAddress  !== undefined) dbPayload.shipping_address  = payload.shippingAddress;
+    if (payload.shippingCity     !== undefined) dbPayload.shipping_city     = payload.shippingCity;
+    if (payload.shippingPostcode !== undefined) dbPayload.shipping_postcode = payload.shippingPostcode;
+    if (payload.shippingPhone    !== undefined) dbPayload.shipping_phone    = payload.shippingPhone;
+    if (payload.totalAmount      !== undefined) dbPayload.total_amount      = payload.totalAmount;
+    if (payload.shippingCost     !== undefined) dbPayload.shipping_cost     = payload.shippingCost;
+    if (payload.status           !== undefined) dbPayload.status            = payload.status;
+    if (payload.channel          !== undefined) dbPayload.channel           = payload.channel;
+    if (payload.apcTrackingNumber !== undefined) dbPayload.apc_tracking_number = payload.apcTrackingNumber;
+    if (payload.apcLabelUrl       !== undefined) dbPayload.apc_label_url       = payload.apcLabelUrl;
+
+    const { data, error } = await supabase
+      .from('orders')
+      .update(dbPayload)
+      .eq('id', id)
+      .select('*, order_items(*)')
+      .single();
+    if (error) throw error;
+    return Order.fromRow(data as any);
+  }
+
   static async create(payload: any) {
     const dbPayload = {
-      id: payload.id,
-      customer_name: payload.customerName,
-      customer_email: payload.customerEmail,
+      id:               payload.id,
+      customer_name:    payload.customerName,
+      customer_email:   payload.customerEmail,
       shipping_address: payload.shippingAddress,
-      shipping_city: payload.shippingCity,
+      shipping_city:    payload.shippingCity,
       shipping_postcode: payload.shippingPostcode,
-      shipping_phone: payload.shippingPhone,
-      total_amount: payload.totalAmount,
-      shipping_cost: payload.shippingCost,
-      status: payload.status,
+      shipping_phone:   payload.shippingPhone,
+      total_amount:     payload.totalAmount,
+      shipping_cost:    payload.shippingCost,
+      status:           payload.status,
+      channel:          payload.channel ?? null,
       apc_tracking_number: payload.apcTrackingNumber,
-      apc_label_url: payload.apcLabelUrl
+      apc_label_url:    payload.apcLabelUrl
     };
     const { data, error } = await supabase
       .from('orders')
@@ -649,8 +701,9 @@ export class OrderItem {
   id!: number;
   orderId!: string;
   productId!: number;
+  productTitle!: string;
   quantity!: number;
-  unitPrice!: number;
+  price!: number;
 
   constructor(data: Partial<OrderItem>) {
     Object.assign(this, data);
